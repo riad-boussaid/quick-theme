@@ -17,10 +17,21 @@ A small, open-source Windows tray utility for switching the Windows light/dark a
 
 Grab the latest package from [GitHub Releases](https://github.com/riad-boussaid/quick-theme/releases/latest):
 
-- **Installer** — per-user install under `%LOCALAPPDATA%\Programs\Quick Theme`
-- **Portable zip** — extract and run `quick-theme.exe`
+- **Installer** - per-user install under `%LOCALAPPDATA%\Programs\Quick Theme`
+- **Portable zip** - extract and run `quick-theme.exe`
 
 Published builds are self-contained and do not require the .NET runtime.
+
+### Winget
+
+Winget packaging is prepared for `RiadBoussaid.QuickTheme`. Once the initial
+manifest is accepted into `microsoft/winget-pkgs`, install with:
+
+```powershell
+winget install RiadBoussaid.QuickTheme
+```
+
+See [`winget/README.md`](winget/README.md) for submission details and automation.
 
 ## Features
 
@@ -251,6 +262,10 @@ and pull request. Pushing a `v*` tag creates a GitHub release with:
 
 The release build embeds a `latest/download/update.json` feed URL, so tagged releases
 can update themselves through GitHub Releases.
+
+`.github/workflows/winget.yml` submits releases to Winget after the initial package is
+accepted into `microsoft/winget-pkgs` and a `WINGET_TOKEN` repository secret is set.
+See [`winget/README.md`](winget/README.md).
 
 ## How it works
 
