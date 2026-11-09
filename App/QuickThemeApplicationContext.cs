@@ -1,3 +1,4 @@
+using QuickTheme.Models;
 using QuickTheme.Services;
 using QuickTheme.UI;
 
@@ -49,6 +50,8 @@ internal sealed class QuickThemeApplicationContext : ApplicationContext
 
         _form.VisibleChanged += OnFormVisibleChanged;
         _form.SettingsRequested += ShowSettings;
+        _form.ResumeScheduleRequested += ResumeSchedule;
+        _schedule.StateChanged += OnScheduleStateChanged;
         _tray.OpenRequested += ShowPanel;
         _tray.ToggleDarkRequested += _themes.ToggleDark;
         _tray.ToggleAppsRequested += _themes.ToggleApps;
@@ -58,6 +61,8 @@ internal sealed class QuickThemeApplicationContext : ApplicationContext
         _tray.PresetRequested += _themes.ApplyPreset;
         _tray.SettingsRequested += ShowSettings;
         _tray.SchedulePauseChanged += OnSchedulePauseChanged;
+        _tray.ScheduleOverrideRequested += OnScheduleOverrideRequested;
+        _tray.ClearScheduleOverrideRequested += OnClearScheduleOverrideRequested;
         _tray.QuitRequested += Quit;
         _tray.TrayClicked += OnTrayClicked;
 
@@ -199,12 +204,51 @@ internal sealed class QuickThemeApplicationContext : ApplicationContext
     private void OnScheduleSettingsChanged()
     {
         _schedule.RefreshSchedule();
+        _form.RefreshScheduleStatus();
         _tray.RefreshMenuState();
     }
 
     private void OnSchedulePauseChanged()
     {
-        _schedule.RefreshSchedule();
+        if (SettingsService.Current.SchedulePaused)
+        {
+            _schedule.ClearOverride();
+        }
+        else
+        {
+            _schedule.RefreshSchedule();
+        }
+
+        _form.RefreshScheduleStatus();
+        _settingsForm?.RefreshFromSettings();
+        _tray.RefreshMenuState();
+    }
+
+    private void OnScheduleOverrideRequested(ScheduleOverrideKind kind)
+    {
+        if (!_schedule.SetOverride(kind))
+        {
+            _tray.ShowBalloon(
+                "Quick Theme",
+                "There is no upcoming scheduled switch to override.",
+                ToolTipIcon.Info);
+        }
+    }
+
+    private void OnClearScheduleOverrideRequested()
+    {
+        _schedule.ClearOverride();
+    }
+
+    private void ResumeSchedule()
+    {
+        _schedule.ResumeSchedule();
+    }
+
+    private void OnScheduleStateChanged()
+    {
+        _tray.RefreshMenuState();
+        _form.RefreshScheduleStatus();
         _settingsForm?.RefreshFromSettings();
     }
 

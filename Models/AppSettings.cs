@@ -23,6 +23,8 @@ internal sealed class AppSettings
     public double ScheduleLongitude { get; set; }
     public ScheduleScope ScheduleScope { get; set; } = ScheduleScope.Both;
     public ScheduleDays ScheduleDays { get; set; } = ScheduleDays.EveryDay;
+    public ScheduleOverrideKind ScheduleOverrideKind { get; set; } = ScheduleOverrideKind.None;
+    public DateTimeOffset? ScheduleOverrideUntil { get; set; }
 
     public string HotkeyToggleDark { get; set; } = "Ctrl+Alt+D";
     public string HotkeyOpenPanel { get; set; } = "Ctrl+Alt+Q";

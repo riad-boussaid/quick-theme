@@ -20,6 +20,15 @@ internal enum ScheduleDays
     Weekends,
 }
 
+internal enum ScheduleOverrideKind
+{
+    None,
+    Dark,
+    Light,
+    UntilNextSwitch,
+    PauseUntilTomorrow,
+}
+
 internal enum ThemePreset
 {
     AllDark,

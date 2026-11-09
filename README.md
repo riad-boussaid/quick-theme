@@ -40,6 +40,7 @@ See [`winget/README.md`](winget/README.md) for submission details and automation
 - Toggle Windows **transparency**
 - Daily **light/dark schedule** with fixed times or sunrise/sunset
 - Schedule pause, weekday/weekend rules, and configurable location
+- Temporary overrides: stay dark/light for one hour, until the next switch, or pause until tomorrow
 - Settings window for schedule, hotkeys, startup, updates, and about
 - Presets: all dark, all light, or apps follow system
 - Quick toggles in the tray menu, plus middle-click for a full dark/light switch
@@ -108,7 +109,7 @@ This creates:
 Useful options:
 
 ```powershell
-.\publish.ps1 -Version 1.5.1
+.\publish.ps1 -Version 1.6.0
 .\publish.ps1 -FeedUrl "https://example.com/quick-theme/update.json"
 .\publish.ps1 -UpdateUrl "https://example.com/quick-theme/quick-theme.exe"
 .\publish.ps1 -SkipInstaller
@@ -139,9 +140,16 @@ Open **Settings** from the flyout footer or the tray menu. The schedule supports
 - Every day, weekdays, or weekends
 - Pausing and resuming without losing the configured times
 - Fixed times as a fallback when the sun does not rise or set (polar day/night)
+- Temporary overrides from the tray menu:
+  - **Stay dark for 1 hour** or **Stay light for 1 hour**
+  - **Until next switch** keeps the current theme until the next scheduled transition
+  - **Pause until tomorrow** skips the rest of today and resumes at the next scheduled switch
 
 The schedule is applied on startup, after sleep/resume or clock changes, and at each
 transition. Manual theme changes stay in effect until the next scheduled transition.
+Temporary overrides are saved, expire automatically, and resume the normal schedule
+when they end. The flyout shows the active override or the next switch; click the
+status line to resume immediately.
 
 ### Presets
 
@@ -194,6 +202,8 @@ Example:
   "ScheduleLongitude": -0.1278,
   "ScheduleScope": "Both",
   "ScheduleDays": "EveryDay",
+  "ScheduleOverrideKind": "None",
+  "ScheduleOverrideUntil": null,
   "HotkeyToggleDark": "Ctrl+Alt+D",
   "HotkeyOpenPanel": "Ctrl+Alt+Q"
 }
@@ -214,6 +224,8 @@ Example:
 | `ScheduleLongitude` | Longitude for sunrise/sunset calculation |
 | `ScheduleScope` | `Both`, `Apps`, or `System` |
 | `ScheduleDays` | `EveryDay`, `Weekdays`, or `Weekends` |
+| `ScheduleOverrideKind` | `None`, `Dark`, `Light`, `UntilNextSwitch`, or `PauseUntilTomorrow` |
+| `ScheduleOverrideUntil` | Auto-expiry for the active override; maintained by the app |
 | `HotkeyToggleDark` | Shortcut for toggling dark mode |
 | `HotkeyOpenPanel` | Shortcut for opening the flyout |
 
@@ -229,7 +241,7 @@ The app checks an update manifest like this:
 
 ```json
 {
-  "version": "1.5.1",
+  "version": "1.6.0",
   "url": "quick-theme.exe",
   "sha256": "lowercase-sha256-of-the-exe",
   "notes": "What changed in this version"

@@ -16,23 +16,108 @@ internal sealed class ScheduleController : IDisposable
         _timer.Tick += (_, _) => CheckSchedule();
     }
 
+    public event Action? StateChanged;
+
     public void Start()
     {
         RefreshSchedule();
         _timer.Start();
     }
 
+    public bool SetOverride(ScheduleOverrideKind kind)
+    {
+        AppSettings settings = SettingsService.Current;
+        if (!settings.ScheduleEnabled || kind == ScheduleOverrideKind.None)
+        {
+            return false;
+        }
+
+        if (!ScheduleOverrideService.TryGetEnd(settings, kind, DateTime.Now, out DateTimeOffset until))
+        {
+            return false;
+        }
+
+        settings.ScheduleOverrideKind = kind;
+        settings.ScheduleOverrideUntil = until;
+        _lastScheduledDark = null;
+        SettingsService.Save();
+
+        if (ScheduleOverrideService.ForcedDark(kind) is bool dark)
+        {
+            _themes.ApplyScheduledTheme(dark);
+        }
+
+        StateChanged?.Invoke();
+        return true;
+    }
+
+    public bool ClearOverride()
+    {
+        AppSettings settings = SettingsService.Current;
+        if (!ClearOverrideState(settings))
+        {
+            return false;
+        }
+
+        SettingsService.Save();
+        _lastScheduledDark = null;
+        RefreshSchedule();
+        StateChanged?.Invoke();
+        return true;
+    }
+
+    public void ResumeSchedule()
+    {
+        AppSettings settings = SettingsService.Current;
+        ClearOverrideState(settings);
+        settings.SchedulePaused = false;
+        SettingsService.Save();
+        _lastScheduledDark = null;
+        RefreshSchedule();
+        StateChanged?.Invoke();
+    }
+
     public void RefreshSchedule()
     {
-        if (!IsActive)
+        AppSettings settings = SettingsService.Current;
+
+        if (!settings.ScheduleEnabled)
+        {
+            if (ClearOverrideState(settings))
+            {
+                SettingsService.Save();
+                StateChanged?.Invoke();
+            }
+
+            return;
+        }
+
+        if (ScheduleOverrideService.ClearIfExpired(settings, DateTimeOffset.Now))
+        {
+            SettingsService.Save();
+            StateChanged?.Invoke();
+        }
+
+        if (ScheduleOverrideService.IsActive(settings, DateTimeOffset.Now))
+        {
+            if (ScheduleOverrideService.ForcedDark(settings.ScheduleOverrideKind) is bool dark)
+            {
+                _themes.ApplyScheduledTheme(dark);
+            }
+
+            _lastScheduledDark = null;
+            return;
+        }
+
+        if (settings.SchedulePaused)
         {
             return;
         }
 
-        if (ScheduleCalculator.GetCurrentDark(SettingsService.Current, DateTime.Now) is bool dark)
+        if (ScheduleCalculator.GetCurrentDark(settings, DateTime.Now) is bool current)
         {
-            _themes.ApplyScheduledTheme(dark);
-            _lastScheduledDark = dark;
+            _themes.ApplyScheduledTheme(current);
+            _lastScheduledDark = current;
         }
     }
 
@@ -41,23 +126,54 @@ internal sealed class ScheduleController : IDisposable
         _timer.Dispose();
     }
 
-    private static bool IsActive =>
-        SettingsService.Current.ScheduleEnabled && !SettingsService.Current.SchedulePaused;
+    private static bool ClearOverrideState(AppSettings settings)
+    {
+        if (settings.ScheduleOverrideKind == ScheduleOverrideKind.None &&
+            settings.ScheduleOverrideUntil is null)
+        {
+            return false;
+        }
+
+        settings.ScheduleOverrideKind = ScheduleOverrideKind.None;
+        settings.ScheduleOverrideUntil = null;
+        return true;
+    }
 
     private void CheckSchedule()
     {
-        if (!IsActive)
+        AppSettings settings = SettingsService.Current;
+
+        if (!settings.ScheduleEnabled)
+        {
+            if (ClearOverrideState(settings))
+            {
+                SettingsService.Save();
+                StateChanged?.Invoke();
+            }
+
+            return;
+        }
+
+        if (ScheduleOverrideService.ClearIfExpired(settings, DateTimeOffset.Now))
+        {
+            SettingsService.Save();
+            StateChanged?.Invoke();
+            RefreshSchedule();
+            return;
+        }
+
+        if (ScheduleOverrideService.IsActive(settings, DateTimeOffset.Now) || settings.SchedulePaused)
         {
             return;
         }
 
-        if (ScheduleCalculator.GetCurrentDark(SettingsService.Current, DateTime.Now) is not bool dark ||
-            _lastScheduledDark == dark)
+        if (ScheduleCalculator.GetCurrentDark(settings, DateTime.Now) is not bool current ||
+            _lastScheduledDark == current)
         {
             return;
         }
 
-        _themes.ApplyScheduledTheme(dark);
-        _lastScheduledDark = dark;
+        _themes.ApplyScheduledTheme(current);
+        _lastScheduledDark = current;
     }
 }
