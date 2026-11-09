@@ -2,6 +2,14 @@
 
 All notable changes to Quick Theme are documented here.
 
+## [Unreleased]
+
+### Added
+
+- Winget manifest for `RiadBoussaid.QuickTheme`
+- Winget manifest generator and submission workflow
+- Dependabot configuration for GitHub Actions
+
 ## [1.5.0] - 2026-11-09
 
 ### Changed

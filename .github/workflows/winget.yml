@@ -1,0 +1,35 @@
+name: Winget
+
+on:
+  release:
+    types: [released]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Release tag to submit (e.g. v1.5.0)
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  submit:
+    runs-on: windows-latest
+    env:
+      WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
+
+    steps:
+      - name: Check token
+        if: ${{ env.WINGET_TOKEN == '' }}
+        shell: pwsh
+        run: |
+          Write-Warning "WINGET_TOKEN is not configured. The manifest was not submitted."
+
+      - name: Submit to winget-pkgs
+        if: ${{ env.WINGET_TOKEN != '' }}
+        uses: vedantmgoyal9/winget-releaser@b7370d4d152efdce803a26cc6ca9eee58cb2ad54
+        with:
+          identifier: RiadBoussaid.QuickTheme
+          installers-regex: 'quick-theme-.*-setup\.exe$'
+          token: ${{ env.WINGET_TOKEN }}
+          release-tag: ${{ github.event.release.tag_name || inputs.version }}

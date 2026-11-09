@@ -38,6 +38,7 @@ Package the app:
 | `UI/` | Flyout and update dialogs, palette, menu renderer, drawing helpers |
 | `UI/Controls/` | Custom toggle, row, close-button, and progress-bar controls |
 | `installer/` | Inno Setup script |
+| `winget/` | Winget manifests and manifest generator |
 | `tests/QuickTheme.Tests/` | Unit tests |
 | `publish.ps1` | Single-file publish, zip, manifest, installer |
 | `.github/workflows/` | CI and release automation |
