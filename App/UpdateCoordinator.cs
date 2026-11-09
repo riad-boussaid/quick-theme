@@ -24,6 +24,8 @@ internal sealed class UpdateCoordinator
         UpdateUpdateItemText();
     }
 
+    public void RequestCheck() => HandleMenuRequest();
+
     public void ScheduleStartupCheck()
     {
         if (!SettingsService.Current.CheckForUpdatesOnStartup ||

@@ -37,6 +37,50 @@ internal sealed class ThemeController
         _tray.RefreshMenuState();
     }
 
+    public void ApplyPreset(ThemePreset preset)
+    {
+        switch (preset)
+        {
+            case ThemePreset.AllDark:
+                ApplyChange(() => ThemeService.SetBothThemes(dark: true));
+                break;
+            case ThemePreset.AllLight:
+                ApplyChange(() => ThemeService.SetBothThemes(dark: false));
+                break;
+            case ThemePreset.AppsFollowSystem:
+                ApplyChange(() => ThemeService.AppsUseDarkTheme = ThemeService.SystemUsesDarkTheme);
+                break;
+        }
+    }
+
+    public void ApplyScheduledTheme(bool dark)
+    {
+        ScheduleScope scope = SettingsService.Current.ScheduleScope;
+        bool appsNeeded = scope is ScheduleScope.Both or ScheduleScope.Apps;
+        bool systemNeeded = scope is ScheduleScope.Both or ScheduleScope.System;
+
+        bool changeApps = appsNeeded && ThemeService.AppsUseDarkTheme != dark;
+        bool changeSystem = systemNeeded && ThemeService.SystemUsesDarkTheme != dark;
+
+        if (!changeApps && !changeSystem)
+        {
+            return;
+        }
+
+        ApplyChange(() =>
+        {
+            if (changeApps)
+            {
+                ThemeService.AppsUseDarkTheme = dark;
+            }
+
+            if (changeSystem)
+            {
+                ThemeService.SystemUsesDarkTheme = dark;
+            }
+        });
+    }
+
     public void RefreshFromSettings()
     {
         _form.RefreshThemeState();

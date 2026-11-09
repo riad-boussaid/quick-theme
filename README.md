@@ -11,6 +11,8 @@ A small, open-source Windows tray utility for switching the Windows light/dark a
   <img src="docs/flyout-light.png" width="344" alt="Quick Theme light flyout">
 </p>
 
+![Quick Theme settings](docs/settings-dark.png)
+
 ## Download
 
 Grab the latest package from [GitHub Releases](https://github.com/riad-boussaid/quick-theme/releases/latest):
@@ -25,6 +27,9 @@ Published builds are self-contained and do not require the .NET runtime.
 - Dark **or light** flyout theme, or follow Windows automatically
 - Toggle **apps** and **system** light/dark mode
 - Toggle Windows **transparency**
+- Daily **light/dark schedule** with pause and weekday/weekend rules
+- Settings window for schedule, startup, updates, and about
+- Presets: all dark, all light, or apps follow system
 - Quick toggles in the tray menu, plus middle-click for a full dark/light switch
 - Global hotkeys: `Ctrl+Alt+D` toggles dark mode, `Ctrl+Alt+Q` opens the flyout
 - Live refresh when the theme is changed from Windows Settings or another tool
@@ -91,7 +96,7 @@ This creates:
 Useful options:
 
 ```powershell
-.\publish.ps1 -Version 1.2.1
+.\publish.ps1 -Version 1.3.0
 .\publish.ps1 -FeedUrl "https://example.com/quick-theme/update.json"
 .\publish.ps1 -UpdateUrl "https://example.com/quick-theme/quick-theme.exe"
 .\publish.ps1 -SkipInstaller
@@ -106,10 +111,31 @@ Run `quick-theme.exe`. It lives in the notification area:
 
 - **Left click** the tray icon to open or close the flyout.
 - **Middle click** toggles apps and system themes together.
-- **Right click** for quick toggles, flyout theme, updates, About, Start with Windows, and Quit.
+- **Right click** for quick toggles, presets, flyout theme, schedule pause, Settings,
+  updates, About, Start with Windows, and Quit.
 - `Ctrl+Alt+D` toggles dark mode from anywhere.
 - `Ctrl+Alt+Q` opens the flyout from anywhere.
 - The flyout closes when it loses focus or when `Esc` is pressed.
+
+### Schedule
+
+Open **Settings** from the flyout footer or the tray menu. The schedule supports:
+
+- Separate light and dark times
+- Applying to apps + system, apps only, or system only
+- Every day, weekdays, or weekends
+- Pausing and resuming without losing the configured times
+
+The schedule is applied on startup, after sleep/resume or clock changes, and at each
+transition. Manual theme changes stay in effect until the next scheduled transition.
+
+### Presets
+
+Use the **Presets** submenu in the tray menu for:
+
+- **All dark**
+- **All light**
+- **Apps follow system**
 
 ### Flyout theme
 
@@ -144,7 +170,13 @@ Example:
   "FlyoutTheme": "System",
   "UpdateFeedUrl": "",
   "CheckForUpdatesOnStartup": true,
-  "LastUpdateCheckUtc": "2026-11-09T13:00:00+00:00"
+  "LastUpdateCheckUtc": "2026-11-09T13:00:00+00:00",
+  "ScheduleEnabled": false,
+  "SchedulePaused": false,
+  "ScheduleLightTime": "07:00:00",
+  "ScheduleDarkTime": "19:00:00",
+  "ScheduleScope": "Both",
+  "ScheduleDays": "EveryDay"
 }
 ```
 
@@ -154,6 +186,12 @@ Example:
 | `UpdateFeedUrl` | URL or local path to `update.json` |
 | `CheckForUpdatesOnStartup` | Check at most once every 24 hours when `true` |
 | `LastUpdateCheckUtc` | Maintained by the app |
+| `ScheduleEnabled` | Turn the daily schedule on or off |
+| `SchedulePaused` | Temporarily suspend scheduled switching |
+| `ScheduleLightTime` | Local time for the light theme |
+| `ScheduleDarkTime` | Local time for the dark theme |
+| `ScheduleScope` | `Both`, `Apps`, or `System` |
+| `ScheduleDays` | `EveryDay`, `Weekdays`, or `Weekends` |
 
 You can override the update feed for a session with an environment variable:
 
@@ -167,7 +205,7 @@ The app checks an update manifest like this:
 
 ```json
 {
-  "version": "1.2.1",
+  "version": "1.3.0",
   "url": "quick-theme.exe",
   "sha256": "lowercase-sha256-of-the-exe",
   "notes": "What changed in this version"

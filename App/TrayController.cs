@@ -12,6 +12,7 @@ internal sealed class TrayController : IDisposable
     private readonly ToolStripMenuItem _startupItem;
     private readonly ToolStripMenuItem _flyoutThemeItem;
     private readonly Dictionary<FlyoutThemeMode, ToolStripMenuItem> _flyoutThemeItems = new();
+    private readonly ToolStripMenuItem _pauseScheduleItem;
     private readonly ToolStripMenuItem _updateItem;
     private bool _disposed;
 
@@ -52,7 +53,16 @@ internal sealed class TrayController : IDisposable
 
         UpdateFlyoutThemeMenu();
 
+        var presetsItem = new ToolStripMenuItem("Presets");
+        var allDarkItem = new ToolStripMenuItem("All dark", null, (_, _) => PresetRequested?.Invoke(ThemePreset.AllDark));
+        var allLightItem = new ToolStripMenuItem("All light", null, (_, _) => PresetRequested?.Invoke(ThemePreset.AllLight));
+        var followSystemItem = new ToolStripMenuItem("Apps follow system", null, (_, _) => PresetRequested?.Invoke(ThemePreset.AppsFollowSystem));
+        presetsItem.DropDownItems.AddRange([allDarkItem, allLightItem, followSystemItem]);
+
+        _pauseScheduleItem = new ToolStripMenuItem("Pause schedule", null, (_, _) => ToggleSchedulePause());
+
         _updateItem = new ToolStripMenuItem("Check for updates...", null, (_, _) => CheckForUpdatesRequested?.Invoke());
+        var settingsItem = new ToolStripMenuItem("Settings...", null, (_, _) => SettingsRequested?.Invoke());
         var aboutItem = new ToolStripMenuItem("About Quick Theme...", null, (_, _) => AboutRequested?.Invoke());
         var quitItem = new ToolStripMenuItem("Quit", null, (_, _) => QuitRequested?.Invoke());
 
@@ -76,8 +86,11 @@ internal sealed class TrayController : IDisposable
             toggleSystemItem,
             toggleTransparencyItem,
             new ToolStripSeparator(),
+            presetsItem,
             _flyoutThemeItem,
+            _pauseScheduleItem,
             new ToolStripSeparator(),
+            settingsItem,
             _updateItem,
             aboutItem,
             new ToolStripSeparator(),
@@ -106,6 +119,9 @@ internal sealed class TrayController : IDisposable
     public event Action? ToggleSystemRequested;
     public event Action? ToggleTransparencyRequested;
     public event Action<FlyoutThemeMode>? FlyoutThemeRequested;
+    public event Action<ThemePreset>? PresetRequested;
+    public event Action? SettingsRequested;
+    public event Action? SchedulePauseChanged;
     public event Action? CheckForUpdatesRequested;
     public event Action? AboutRequested;
     public event Action? QuitRequested;
@@ -134,6 +150,10 @@ internal sealed class TrayController : IDisposable
     {
         _startupItem.Checked = StartupService.IsEnabled;
         UpdateFlyoutThemeMenu();
+
+        AppSettings settings = SettingsService.Current;
+        _pauseScheduleItem.Enabled = settings.ScheduleEnabled;
+        _pauseScheduleItem.Text = settings.SchedulePaused ? "Resume schedule" : "Pause schedule";
     }
 
     public void SetUpdateItem(string text, bool enabled)
@@ -184,6 +204,14 @@ internal sealed class TrayController : IDisposable
         {
             item.Text = (mode == activeMode ? "\u2713  " : "    ") + FlyoutThemeLabel(mode);
         }
+    }
+
+    private void ToggleSchedulePause()
+    {
+        SettingsService.Current.SchedulePaused = !SettingsService.Current.SchedulePaused;
+        SettingsService.Save();
+        RefreshMenuState();
+        SchedulePauseChanged?.Invoke();
     }
 
     private void UpdateStartupText()
