@@ -82,7 +82,7 @@ internal sealed class ToggleSwitch : CheckBox
         float radius = track.Height / 2f;
 
         Color onColor = _hover ? ControlPaint.Light(Palette.Accent, 0.10f) : Palette.Accent;
-        Color offColor = _hover ? Color.FromArgb(75, 75, 87) : Palette.TrackOff;
+        Color offColor = _hover ? ControlPaint.Light(Palette.TrackOff, 0.10f) : Palette.TrackOff;
 
         using (var path = Ui.RoundedRect(track, radius))
         using (var brush = new SolidBrush(Ui.Mix(offColor, onColor, _progress)))
@@ -100,7 +100,7 @@ internal sealed class ToggleSwitch : CheckBox
             g.FillEllipse(shadow, thumbX, track.Top + inset + 1f, thumbSize, thumbSize);
         }
 
-        using (var thumb = new SolidBrush(Color.White))
+        using (var thumb = new SolidBrush(Palette.ToggleThumb))
         {
             g.FillEllipse(thumb, thumbX, track.Top + inset, thumbSize, thumbSize);
         }
@@ -108,7 +108,7 @@ internal sealed class ToggleSwitch : CheckBox
         if (Focused && ShowFocusCues)
         {
             using var focusPath = Ui.RoundedRect(new RectangleF(1f, 1f, Width - 2f, Height - 2f), radius);
-            using var pen = new Pen(Color.FromArgb(190, Color.White), 1f);
+            using var pen = new Pen(Color.FromArgb(190, Palette.ToggleThumb), 1f);
             g.DrawPath(pen, focusPath);
         }
     }

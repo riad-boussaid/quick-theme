@@ -1,4 +1,5 @@
 using System.Drawing;
+using System.Windows.Forms;
 using QuickTheme.Models;
 using QuickTheme.Services;
 
@@ -52,8 +53,10 @@ internal static class Palette
         IsLight: true);
 
     private static PaletteColors _current = Dark;
+    private static bool _highContrast;
 
     public static bool IsLight => _current.IsLight;
+    public static bool IsHighContrast => _highContrast;
     public static Color SurfaceTop => _current.SurfaceTop;
     public static Color SurfaceBottom => _current.SurfaceBottom;
     public static Color Border => _current.Border;
@@ -71,6 +74,11 @@ internal static class Palette
     {
         get
         {
+            if (_highContrast)
+            {
+                return SystemColors.Highlight;
+            }
+
             Color accent = ThemeService.AccentColor;
             if (!IsLight)
             {
@@ -84,11 +92,40 @@ internal static class Palette
         }
     }
 
-    public static void Apply(FlyoutThemeMode mode, bool systemDark)
+    public static Color ToggleThumb =>
+        _highContrast ? SystemColors.HighlightText : Color.White;
+
+    public static void Apply(FlyoutThemeMode mode, bool systemDark) =>
+        Apply(mode, systemDark, SystemInformation.HighContrast);
+
+    internal static void Apply(FlyoutThemeMode mode, bool systemDark, bool highContrast)
     {
+        _highContrast = highContrast;
+
+        if (highContrast)
+        {
+            _current = CreateHighContrast();
+            return;
+        }
+
         bool light = mode == FlyoutThemeMode.Light ||
                      (mode == FlyoutThemeMode.System && !systemDark);
 
         _current = light ? Light : Dark;
     }
+
+    private static PaletteColors CreateHighContrast() => new(
+        SurfaceTop: SystemColors.Window,
+        SurfaceBottom: SystemColors.Window,
+        Border: SystemColors.WindowFrame,
+        Separator: SystemColors.ControlDark,
+        Text: SystemColors.WindowText,
+        TextMuted: SystemColors.WindowText,
+        TextDisabled: SystemColors.GrayText,
+        RowHover: SystemColors.Control,
+        TrackOff: SystemColors.Control,
+        MenuSurface: SystemColors.Menu,
+        MenuHover: SystemColors.Control,
+        Danger: SystemColors.WindowText,
+        IsLight: SystemColors.Window.GetBrightness() > 0.5f);
 }

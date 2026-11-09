@@ -35,6 +35,7 @@ internal sealed class SegmentedControl : Control
         {
             _options = value ?? [];
             _selectedIndex = Math.Clamp(_selectedIndex, 0, Math.Max(0, _options.Length - 1));
+            UpdateAccessibleDescription();
             Invalidate();
         }
     }
@@ -52,6 +53,7 @@ internal sealed class SegmentedControl : Control
             }
 
             _selectedIndex = clamped;
+            UpdateAccessibleDescription();
             Invalidate();
             SelectedIndexChanged?.Invoke(this, EventArgs.Empty);
         }
@@ -72,11 +74,14 @@ internal sealed class SegmentedControl : Control
         g.SmoothingMode = SmoothingMode.AntiAlias;
 
         var track = new RectangleF(0.5f, 0.5f, Width - 1f, Height - 1f);
+        Color trackColor = Palette.IsHighContrast
+            ? Palette.TrackOff
+            : Palette.IsLight
+                ? Color.FromArgb(231, 231, 238)
+                : Color.FromArgb(44, 44, 54);
+
         using (var trackPath = Ui.RoundedRect(track, 8f))
-        using (var trackBrush = new SolidBrush(
-                   Palette.IsLight
-                       ? Color.FromArgb(231, 231, 238)
-                       : Color.FromArgb(44, 44, 54)))
+        using (var trackBrush = new SolidBrush(trackColor))
         {
             g.FillPath(trackBrush, trackPath);
         }
@@ -172,18 +177,25 @@ internal sealed class SegmentedControl : Control
 
     protected override void OnKeyDown(KeyEventArgs e)
     {
-        if (e.KeyCode == Keys.Left)
+        if (e.KeyCode is Keys.Left or Keys.Up)
         {
             SelectedIndex = Math.Max(0, _selectedIndex - 1);
             e.Handled = true;
         }
-        else if (e.KeyCode == Keys.Right)
+        else if (e.KeyCode is Keys.Right or Keys.Down)
         {
             SelectedIndex = Math.Min(_options.Length - 1, _selectedIndex + 1);
             e.Handled = true;
         }
 
         base.OnKeyDown(e);
+    }
+
+    private void UpdateAccessibleDescription()
+    {
+        AccessibleDescription = _options.Length == 0
+            ? null
+            : $"Selected: {_options[_selectedIndex]}";
     }
 
     private int HitTest(Point point)

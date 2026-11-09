@@ -60,6 +60,8 @@ internal sealed class SettingsForm : Form
         AutoScaleDimensions = new SizeF(96F, 96F);
         AutoScaleMode = AutoScaleMode.Dpi;
         Text = "Quick Theme Settings";
+        AccessibleName = "Quick Theme Settings";
+        AccessibleDescription = "Configure the schedule, hotkeys, startup behavior, and updates.";
         Icon = Palette.IsLight
             ? Properties.Resources.themes_256_black
             : new Icon(Properties.Resources.themes_32, 32, 32);
@@ -247,9 +249,11 @@ internal sealed class SettingsForm : Form
 
             int dividerX = Scale(184);
             using var sidebarBrush = new SolidBrush(
-                Palette.IsLight
-                    ? Color.FromArgb(246, 246, 250)
-                    : Color.FromArgb(24, 24, 29));
+                Palette.IsHighContrast
+                    ? SystemColors.Window
+                    : Palette.IsLight
+                        ? Color.FromArgb(246, 246, 250)
+                        : Color.FromArgb(24, 24, 29));
             e.Graphics.FillRectangle(
                 sidebarBrush,
                 new Rectangle(0, _header.Height, dividerX, Height - _header.Height));
@@ -349,15 +353,23 @@ internal sealed class SettingsForm : Form
 
         _lightTimeBox = CreateBox(center: true, placeholder: "HH:mm");
         AddFieldRow(panel, ref y, "Light time", _lightTimeBox, 120);
+        _lightTimeBox.InnerTextBox.AccessibleDescription =
+            "Local time for the light theme, in 24-hour format.";
 
         _darkTimeBox = CreateBox(center: true, placeholder: "HH:mm");
         AddFieldRow(panel, ref y, "Dark time", _darkTimeBox, 120);
+        _darkTimeBox.InnerTextBox.AccessibleDescription =
+            "Local time for the dark theme, in 24-hour format.";
 
         _latitudeBox = CreateBox(placeholder: "51.5074");
         AddFieldRow(panel, ref y, "Latitude", _latitudeBox, 160);
+        _latitudeBox.InnerTextBox.AccessibleDescription =
+            "Latitude in decimal degrees, for sunrise and sunset.";
 
         _longitudeBox = CreateBox(placeholder: "-0.1278");
         AddFieldRow(panel, ref y, "Longitude", _longitudeBox, 160);
+        _longitudeBox.InnerTextBox.AccessibleDescription =
+            "Longitude in decimal degrees, for sunrise and sunset.";
 
         AddNote(
             panel,
@@ -383,6 +395,7 @@ internal sealed class SettingsForm : Form
             "Suspend switching indefinitely");
 
         _scheduleStatus = AddNote(panel, ref y, string.Empty, 24);
+        _scheduleStatus.AccessibleName = "Schedule status";
     }
 
     private void BuildHotkeysSection(Panel panel)
@@ -395,9 +408,13 @@ internal sealed class SettingsForm : Form
 
         _toggleHotkeyBox = CreateBox(readOnly: true);
         AddFieldRow(panel, ref y, "Toggle dark mode", _toggleHotkeyBox, 200);
+        _toggleHotkeyBox.InnerTextBox.AccessibleDescription =
+            "Press a combination including Ctrl, Alt, or Shift, then apply.";
 
         _openHotkeyBox = CreateBox(readOnly: true);
         AddFieldRow(panel, ref y, "Open flyout", _openHotkeyBox, 200);
+        _openHotkeyBox.InnerTextBox.AccessibleDescription =
+            "Press a combination including Ctrl, Alt, or Shift, then apply.";
 
         var applyButton = new PillButton("Apply hotkeys", primary: true)
         {
@@ -414,6 +431,7 @@ internal sealed class SettingsForm : Form
             Font = new Font("Segoe UI", 8.5F),
             Bounds = new Rectangle(280, y, 160, 30),
             TextAlign = ContentAlignment.MiddleLeft,
+            AccessibleName = "Hotkey status",
         };
         panel.Controls.Add(_hotkeyStatus);
         y += 42;
@@ -441,6 +459,10 @@ internal sealed class SettingsForm : Form
         y += 24;
 
         _feedBox = CreateBox(placeholder: "https://example.com/update.json");
+        _feedBox.AccessibleName = "Update feed URL";
+        _feedBox.InnerTextBox.AccessibleName = "Update feed URL";
+        _feedBox.InnerTextBox.AccessibleDescription =
+            "URL or local path to the update manifest.";
         _feedBox.Bounds = new Rectangle(8, y, 420, 30);
         panel.Controls.Add(_feedBox);
         y += 38;
@@ -472,6 +494,7 @@ internal sealed class SettingsForm : Form
         y += 40;
 
         _feedStatus = AddNote(panel, ref y, string.Empty, 20);
+        _feedStatus.AccessibleName = "Update feed status";
 
         AddNote(
             panel,
@@ -556,6 +579,7 @@ internal sealed class SettingsForm : Form
     private void AddSegmentedRow(Panel panel, ref int y, string label, SegmentedControl control)
     {
         AddLabel(panel, label, new Rectangle(8, y + 3, 120, 26), Palette.Text, 9F);
+        control.AccessibleName = label;
         control.Bounds = new Rectangle(140, y, 290, 30);
         panel.Controls.Add(control);
         y += 38;
@@ -564,6 +588,8 @@ internal sealed class SettingsForm : Form
     private void AddFieldRow(Panel panel, ref int y, string label, RoundedTextBox box, int width)
     {
         AddLabel(panel, label, new Rectangle(8, y + 3, 120, 26), Palette.Text, 9F);
+        box.AccessibleName = label;
+        box.InnerTextBox.AccessibleName = label;
         box.Bounds = new Rectangle(140, y, width, 30);
         panel.Controls.Add(box);
         y += 38;
