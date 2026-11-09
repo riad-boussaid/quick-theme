@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Drawing;
+using System.Globalization;
 using System.Runtime.InteropServices;
 using QuickTheme.Models;
 using QuickTheme.Services;
@@ -9,33 +10,40 @@ namespace QuickTheme.UI;
 
 internal sealed class SettingsForm : Form
 {
-    private const int DwmwaUseImmersiveDarkMode = 20;
+    private const int CsDropShadow = 0x00020000;
+    private const int WmNcLButtonDown = 0xA1;
+    private const int HtCaption = 0x2;
 
     private readonly Action _scheduleChanged;
     private readonly Action _checkForUpdates;
     private readonly Func<string, string, string?> _applyHotkeys;
-    private readonly Panel _content;
+
+    private readonly Panel _header;
+    private readonly PictureBox _logo;
+    private readonly Label _title;
+    private readonly Label _subtitle;
+    private readonly CloseButton _closeButton;
+    private readonly SettingsNavButton[] _navButtons;
+    private readonly Panel[] _sections;
+    private readonly Label _footer;
 
     private ThemeRow _scheduleEnabledRow = null!;
     private ThemeRow _schedulePausedRow = null!;
     private SegmentedControl _modeControl = null!;
-    private NumericUpDown _lightHour = null!;
-    private NumericUpDown _lightMinute = null!;
-    private NumericUpDown _darkHour = null!;
-    private NumericUpDown _darkMinute = null!;
-    private NumericUpDown _latitude = null!;
-    private NumericUpDown _longitude = null!;
+    private RoundedTextBox _lightTimeBox = null!;
+    private RoundedTextBox _darkTimeBox = null!;
+    private RoundedTextBox _latitudeBox = null!;
+    private RoundedTextBox _longitudeBox = null!;
     private SegmentedControl _scopeControl = null!;
     private SegmentedControl _daysControl = null!;
     private Label _scheduleStatus = null!;
     private ThemeRow _startWithWindowsRow = null!;
     private ThemeRow _startupUpdatesRow = null!;
-    private TextBox _toggleHotkeyBox = null!;
-    private TextBox _openHotkeyBox = null!;
+    private RoundedTextBox _toggleHotkeyBox = null!;
+    private RoundedTextBox _openHotkeyBox = null!;
     private Label _hotkeyStatus = null!;
-    private TextBox _feedBox = null!;
+    private RoundedTextBox _feedBox = null!;
     private Label _feedStatus = null!;
-    private int _y = 12;
     private bool _loading = true;
 
     public SettingsForm(
@@ -55,96 +63,139 @@ internal sealed class SettingsForm : Form
         Icon = Palette.IsLight
             ? Properties.Resources.themes_256_black
             : new Icon(Properties.Resources.themes_32, 32, 32);
-        FormBorderStyle = FormBorderStyle.FixedDialog;
+        FormBorderStyle = FormBorderStyle.None;
         StartPosition = FormStartPosition.CenterScreen;
         ShowInTaskbar = true;
         MaximizeBox = false;
         MinimizeBox = false;
-        ClientSize = new Size(560, 640);
+        KeyPreview = true;
+        DoubleBuffered = true;
+        ClientSize = new Size(660, 600);
         BackColor = Palette.SurfaceBottom;
         ForeColor = Palette.Text;
         Font = new Font("Segoe UI", 9F);
 
-        _content = new Panel
+        _header = new Panel
         {
-            Dock = DockStyle.Fill,
-            AutoScroll = true,
-            BackColor = Palette.SurfaceBottom,
+            Bounds = new Rectangle(0, 0, ClientSize.Width, 64),
+            BackColor = Color.Transparent,
         };
-        Controls.Add(_content);
 
-        BuildScheduleSection();
-        BuildGeneralSection();
-        BuildHotkeysSection();
-        BuildUpdatesSection();
-        BuildAboutSection();
+        _logo = new PictureBox
+        {
+            Image = Palette.IsLight ? Properties.Resources.themes_black : Properties.Resources.themes_white,
+            SizeMode = PictureBoxSizeMode.Zoom,
+            BackColor = Color.Transparent,
+            Bounds = new Rectangle(18, 17, 28, 28),
+        };
 
+        _title = new Label
+        {
+            Text = "Settings",
+            AutoSize = true,
+            BackColor = Color.Transparent,
+            ForeColor = Palette.Text,
+            Font = new Font("Segoe UI Semibold", 13F),
+            Location = new Point(56, 10),
+        };
+
+        _subtitle = new Label
+        {
+            Text = $"Quick Theme {AppInfo.DisplayVersion}",
+            AutoSize = true,
+            BackColor = Color.Transparent,
+            ForeColor = Palette.TextMuted,
+            Font = new Font("Segoe UI", 8.5F),
+            Location = new Point(57, 34),
+        };
+
+        _closeButton = new CloseButton
+        {
+            Bounds = new Rectangle(ClientSize.Width - 44, 18, 28, 28),
+        };
+        _closeButton.Click += (_, _) => Close();
+
+        _header.Controls.AddRange([_logo, _title, _subtitle, _closeButton]);
+        Controls.Add(_header);
+
+        AttachDrag(_header);
+        AttachDrag(_logo);
+        AttachDrag(_title);
+        AttachDrag(_subtitle);
+
+        string[] navLabels = ["General", "Schedule", "Hotkeys", "Updates", "About"];
+        _navButtons = new SettingsNavButton[navLabels.Length];
+
+        for (int index = 0; index < navLabels.Length; index++)
+        {
+            int sectionIndex = index;
+            var button = new SettingsNavButton(navLabels[index])
+            {
+                Bounds = new Rectangle(16, 84 + index * 44, 160, 36),
+            };
+            button.Click += (_, _) => ShowSection(sectionIndex);
+            _navButtons[index] = button;
+            Controls.Add(button);
+        }
+
+        _footer = new Label
+        {
+            Text = "Changes are saved automatically",
+            AutoSize = false,
+            BackColor = Color.Transparent,
+            ForeColor = Palette.TextMuted,
+            Font = new Font("Segoe UI", 8.25F),
+            Bounds = new Rectangle(18, ClientSize.Height - 32, 150, 20),
+        };
+        Controls.Add(_footer);
+
+        _sections = new Panel[navLabels.Length];
+        _sections[0] = CreateSectionPanel();
+        _sections[1] = CreateSectionPanel();
+        _sections[2] = CreateSectionPanel();
+        _sections[3] = CreateSectionPanel();
+        _sections[4] = CreateSectionPanel();
+
+        BuildGeneralSection(_sections[0]);
+        BuildScheduleSection(_sections[1]);
+        BuildHotkeysSection(_sections[2]);
+        BuildUpdatesSection(_sections[3]);
+        BuildAboutSection(_sections[4]);
+
+        _loading = true;
         LoadSettings();
+        HookEvents();
         _loading = false;
-
-        _scheduleEnabledRow.CheckedChanged += OnScheduleEnabledChanged;
-        _schedulePausedRow.CheckedChanged += OnSchedulePausedChanged;
-        _modeControl.SelectedIndexChanged += OnScheduleModeChanged;
-        _scopeControl.SelectedIndexChanged += OnScheduleOptionChanged;
-        _daysControl.SelectedIndexChanged += OnScheduleOptionChanged;
-        _lightHour.ValueChanged += OnScheduleTimeChanged;
-        _lightMinute.ValueChanged += OnScheduleTimeChanged;
-        _darkHour.ValueChanged += OnScheduleTimeChanged;
-        _darkMinute.ValueChanged += OnScheduleTimeChanged;
-        _latitude.ValueChanged += OnScheduleLocationChanged;
-        _longitude.ValueChanged += OnScheduleLocationChanged;
-        _startWithWindowsRow.CheckedChanged += OnStartWithWindowsChanged;
-        _startupUpdatesRow.CheckedChanged += OnStartupUpdatesChanged;
-
         UpdateScheduleStatus();
+
+        ShowSection(0);
+        LayoutUi();
     }
 
-    public void RefreshFromSettings()
+    protected override CreateParams CreateParams
     {
-        AppSettings settings = SettingsService.Current;
-        _loading = true;
-        try
+        get
         {
-            _scheduleEnabledRow.SetCheckedSilently(settings.ScheduleEnabled);
-            _schedulePausedRow.SetCheckedSilently(settings.SchedulePaused);
-            _modeControl.SelectedIndex = (int)settings.ScheduleMode;
-            _scopeControl.SelectedIndex = (int)settings.ScheduleScope;
-            _daysControl.SelectedIndex = (int)settings.ScheduleDays;
-            _lightHour.Value = settings.ScheduleLightTime.Hour;
-            _lightMinute.Value = settings.ScheduleLightTime.Minute;
-            _darkHour.Value = settings.ScheduleDarkTime.Hour;
-            _darkMinute.Value = settings.ScheduleDarkTime.Minute;
-            _latitude.Value = (decimal)Math.Clamp(settings.ScheduleLatitude, -90d, 90d);
-            _longitude.Value = (decimal)Math.Clamp(settings.ScheduleLongitude, -180d, 180d);
-            _toggleHotkeyBox.Text = settings.HotkeyToggleDark;
-            _openHotkeyBox.Text = settings.HotkeyOpenPanel;
+            CreateParams parameters = base.CreateParams;
+            parameters.ClassStyle |= CsDropShadow;
+            return parameters;
         }
-        finally
-        {
-            _loading = false;
-        }
-
-        UpdateScheduleStatus();
     }
 
     protected override void OnHandleCreated(EventArgs e)
     {
         base.OnHandleCreated(e);
-
-        if (!Palette.IsLight)
-        {
-            int useDark = 1;
-            _ = DwmSetWindowAttribute(Handle, DwmwaUseImmersiveDarkMode, ref useDark, sizeof(int));
-        }
+        UpdateWindowRegion();
     }
 
-    protected override void OnShown(EventArgs e)
+    protected override void OnResize(EventArgs e)
     {
-        base.OnShown(e);
+        base.OnResize(e);
 
-        if (!Palette.IsLight)
+        if (IsHandleCreated)
         {
-            _ = SetWindowTheme(_content.Handle, "DarkMode_Explorer", null);
+            LayoutUi();
+            UpdateWindowRegion();
         }
     }
 
@@ -153,338 +204,384 @@ internal sealed class SettingsForm : Form
         base.OnLoad(e);
 
         Rectangle area = Screen.FromControl(this).WorkingArea;
-        int newWidth = Math.Min(ClientSize.Width, Math.Max(400, area.Width - 120));
-        int newHeight = Math.Min(ClientSize.Height, Math.Max(400, area.Height - 120));
+        int width = Math.Min(Width, Math.Max(520, area.Width - 80));
+        int height = Math.Min(Height, Math.Max(420, area.Height - 80));
 
-        if (newWidth != ClientSize.Width || newHeight != ClientSize.Height)
+        if (width != Width || height != Height)
         {
-            ClientSize = new Size(newWidth, newHeight);
+            Size = new Size(width, height);
             Left = area.Left + (area.Width - Width) / 2;
             Top = area.Top + (area.Height - Height) / 2;
         }
+
+        LayoutUi();
     }
 
-    private void BuildScheduleSection()
+    protected override void OnShown(EventArgs e)
     {
-        AddSection("Schedule");
+        base.OnShown(e);
+
+        if (!Palette.IsLight)
+        {
+            foreach (Panel panel in _sections)
+            {
+                if (panel.IsHandleCreated)
+                {
+                    _ = SetWindowTheme(panel.Handle, "DarkMode_Explorer", null);
+                }
+            }
+        }
+    }
+
+    protected override void OnPaintBackground(PaintEventArgs e)
+    {
+        using (var baseBrush = new SolidBrush(Palette.SurfaceBottom))
+        {
+            e.Graphics.FillRectangle(baseBrush, ClientRectangle);
+        }
+
+        if (_header is not null)
+        {
+            using var headerBrush = new SolidBrush(Palette.SurfaceTop);
+            e.Graphics.FillRectangle(headerBrush, new Rectangle(0, 0, Width, _header.Height));
+
+            int dividerX = Scale(184);
+            using var sidebarBrush = new SolidBrush(
+                Palette.IsLight
+                    ? Color.FromArgb(246, 246, 250)
+                    : Color.FromArgb(24, 24, 29));
+            e.Graphics.FillRectangle(
+                sidebarBrush,
+                new Rectangle(0, _header.Height, dividerX, Height - _header.Height));
+        }
+    }
+
+    protected override void OnPaint(PaintEventArgs e)
+    {
+        base.OnPaint(e);
+
+        e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+
+        using (var borderPath = Ui.RoundedRect(
+                   new RectangleF(0.5f, 0.5f, Width - 1f, Height - 1f),
+                   Scale(14)))
+        using (var borderPen = new Pen(Palette.Border))
+        {
+            e.Graphics.DrawPath(borderPen, borderPath);
+        }
+
+        int dividerX = Scale(184);
+        using (var separator = new Pen(Palette.Separator))
+        {
+            e.Graphics.DrawLine(separator, 18, _header.Bottom, Width - 18, _header.Bottom);
+            e.Graphics.DrawLine(separator, dividerX, _header.Bottom + 8, dividerX, Height - 16);
+        }
+    }
+
+    protected override void OnKeyDown(KeyEventArgs e)
+    {
+        if (e.KeyCode == Keys.Escape)
+        {
+            Close();
+            e.Handled = true;
+        }
+
+        base.OnKeyDown(e);
+    }
+
+    private Panel CreateSectionPanel()
+    {
+        var panel = new Panel
+        {
+            BackColor = Palette.SurfaceBottom,
+            AutoScroll = true,
+            Visible = false,
+        };
+        Controls.Add(panel);
+        return panel;
+    }
+
+    private void BuildGeneralSection(Panel panel)
+    {
+        int y = AddPageHeader(
+            panel,
+            "General",
+            "Startup behavior for Quick Theme.",
+            0);
+
+        _startWithWindowsRow = AddToggleRow(
+            panel,
+            ref y,
+            "Start with Windows",
+            "Launch Quick Theme when you sign in");
+
+        _startupUpdatesRow = AddToggleRow(
+            panel,
+            ref y,
+            "Check for updates on startup",
+            "At most once every 24 hours");
+
+        AddNote(
+            panel,
+            ref y,
+            "Flyout theme and quick presets are available from the tray menu.");
+    }
+
+    private void BuildScheduleSection(Panel panel)
+    {
+        int y = AddPageHeader(
+            panel,
+            "Schedule",
+            "Switch themes automatically on a daily rhythm.",
+            0);
 
         _scheduleEnabledRow = AddToggleRow(
+            panel,
+            ref y,
             "Enable schedule",
-            "Automatically switch themes on a daily schedule");
+            "Automatically switch themes");
 
         _modeControl = new SegmentedControl
         {
             Options = ["Fixed times", "Sunrise/sunset"],
         };
-        AddChoiceRow("Mode", _modeControl);
+        AddSegmentedRow(panel, ref y, "Mode", _modeControl);
 
-        (_lightHour, _lightMinute) = AddTimeRow("Light time");
-        (_darkHour, _darkMinute) = AddTimeRow("Dark time");
+        _lightTimeBox = CreateBox(center: true, placeholder: "HH:mm");
+        AddFieldRow(panel, ref y, "Light time", _lightTimeBox, 120);
 
-        AddLabel("Latitude", new Rectangle(20, _y + 3, 160, 26), Palette.Text, 9F);
-        _latitude = CreateCoordinate(-90, 90, new Point(200, _y));
-        _y += 38;
+        _darkTimeBox = CreateBox(center: true, placeholder: "HH:mm");
+        AddFieldRow(panel, ref y, "Dark time", _darkTimeBox, 120);
 
-        AddLabel("Longitude", new Rectangle(20, _y + 3, 160, 26), Palette.Text, 9F);
-        _longitude = CreateCoordinate(-180, 180, new Point(200, _y));
-        _y += 38;
+        _latitudeBox = CreateBox(placeholder: "51.5074");
+        AddFieldRow(panel, ref y, "Latitude", _latitudeBox, 160);
 
-        AddLabel(
-            "Sunrise/sunset uses your location and local time; fixed times are fallback.",
-            new Rectangle(20, _y, 520, 22),
-            Palette.TextMuted,
-            8.5F);
-        _y += 28;
+        _longitudeBox = CreateBox(placeholder: "-0.1278");
+        AddFieldRow(panel, ref y, "Longitude", _longitudeBox, 160);
+
+        AddNote(
+            panel,
+            ref y,
+            "Sunrise/sunset uses your location and local time; fixed times are fallback.");
 
         _scopeControl = new SegmentedControl
         {
             Options = ["Apps + system", "Apps", "System"],
         };
-        AddChoiceRow("Apply to", _scopeControl);
+        AddSegmentedRow(panel, ref y, "Apply to", _scopeControl);
 
         _daysControl = new SegmentedControl
         {
             Options = ["Every day", "Weekdays", "Weekends"],
         };
-        AddChoiceRow("Days", _daysControl);
+        AddSegmentedRow(panel, ref y, "Days", _daysControl);
 
         _schedulePausedRow = AddToggleRow(
+            panel,
+            ref y,
             "Pause schedule",
-            "Suspend automatic switching until resumed");
+            "Suspend switching until resumed");
 
-        _scheduleStatus = AddLabel(string.Empty, new Rectangle(20, _y, 520, 24), Palette.TextMuted, 8.5F);
-        _y += 30;
+        _scheduleStatus = AddNote(panel, ref y, string.Empty, 24);
     }
 
-    private void BuildGeneralSection()
+    private void BuildHotkeysSection(Panel panel)
     {
-        AddSection("General");
+        int y = AddPageHeader(
+            panel,
+            "Hotkeys",
+            "Global shortcuts that work from anywhere.",
+            0);
 
-        _startWithWindowsRow = AddToggleRow(
-            "Start with Windows",
-            "Launch Quick Theme when you sign in");
+        _toggleHotkeyBox = CreateBox(readOnly: true);
+        AddFieldRow(panel, ref y, "Toggle dark mode", _toggleHotkeyBox, 200);
 
-        _startupUpdatesRow = AddToggleRow(
-            "Check for updates on startup",
-            "At most once every 24 hours");
+        _openHotkeyBox = CreateBox(readOnly: true);
+        AddFieldRow(panel, ref y, "Open flyout", _openHotkeyBox, 200);
 
-        AddLabel(
-            "Flyout theme and quick presets are available from the tray menu.",
-            new Rectangle(20, _y, 520, 24),
-            Palette.TextMuted,
-            8.5F);
-        _y += 34;
-    }
-
-    private void BuildHotkeysSection()
-    {
-        AddSection("Hotkeys");
-
-        AddLabel("Toggle dark mode", new Rectangle(20, _y + 3, 160, 26), Palette.Text, 9F);
-        _toggleHotkeyBox = CreateHotkeyBox(new Rectangle(200, _y, 190, 28));
-        _y += 38;
-
-        AddLabel("Open flyout", new Rectangle(20, _y + 3, 160, 26), Palette.Text, 9F);
-        _openHotkeyBox = CreateHotkeyBox(new Rectangle(200, _y, 190, 28));
-        _y += 38;
-
-        Button applyButton = CreateButton("Apply hotkeys", 110);
-        applyButton.Location = new Point(200, _y);
-        applyButton.Click += (_, _) => ApplyHotkeyChanges();
-        _content.Controls.Add(applyButton);
-
-        _hotkeyStatus = AddLabel(
-            string.Empty,
-            new Rectangle(320, _y, 220, 28),
-            Palette.TextMuted,
-            8.5F);
-        _y += 38;
-
-        AddLabel(
-            "Click a box and press a combination including Ctrl, Alt, or Shift.",
-            new Rectangle(20, _y, 520, 22),
-            Palette.TextMuted,
-            8.5F);
-        _y += 34;
-    }
-
-    private void BuildUpdatesSection()
-    {
-        AddSection("Updates");
-
-        AddLabel("Update feed URL", new Rectangle(20, _y, 520, 24), Palette.Text, 9F);
-        _y += 24;
-
-        _feedBox = new TextBox
+        var applyButton = new PillButton("Apply hotkeys", primary: true)
         {
-            Bounds = new Rectangle(20, _y, 340, 28),
-            BackColor = Palette.MenuSurface,
-            ForeColor = Palette.Text,
-            BorderStyle = BorderStyle.FixedSingle,
-            Font = new Font("Segoe UI", 9F),
+            Bounds = new Rectangle(140, y, 130, 30),
         };
-        _content.Controls.Add(_feedBox);
+        applyButton.Click += (_, _) => ApplyHotkeyChanges();
+        panel.Controls.Add(applyButton);
 
-        Button saveFeedButton = CreateButton("Save", 70);
-        saveFeedButton.Location = new Point(368, _y);
-        saveFeedButton.Click += (_, _) => SaveFeed();
-        _content.Controls.Add(saveFeedButton);
+        _hotkeyStatus = new Label
+        {
+            AutoSize = false,
+            BackColor = Color.Transparent,
+            ForeColor = Palette.TextMuted,
+            Font = new Font("Segoe UI", 8.5F),
+            Bounds = new Rectangle(280, y, 160, 30),
+            TextAlign = ContentAlignment.MiddleLeft,
+        };
+        panel.Controls.Add(_hotkeyStatus);
+        y += 42;
 
-        Button checkButton = CreateButton("Check now", 94);
-        checkButton.Location = new Point(446, _y);
+        AddNote(
+            panel,
+            ref y,
+            "Click a box and press a combination including Ctrl, Alt, or Shift.");
+    }
+
+    private void BuildUpdatesSection(Panel panel)
+    {
+        int y = AddPageHeader(
+            panel,
+            "Updates",
+            "Choose where Quick Theme looks for updates.",
+            0);
+
+        AddLabel(
+            panel,
+            "Update feed URL",
+            new Rectangle(8, y, 420, 22),
+            Palette.Text,
+            9F);
+        y += 24;
+
+        _feedBox = CreateBox(placeholder: "https://example.com/update.json");
+        _feedBox.Bounds = new Rectangle(8, y, 420, 30);
+        panel.Controls.Add(_feedBox);
+        y += 38;
+
+        var saveButton = new PillButton("Save")
+        {
+            Bounds = new Rectangle(8, y, 76, 30),
+        };
+        saveButton.Click += (_, _) => SaveFeed();
+        panel.Controls.Add(saveButton);
+
+        var checkButton = new PillButton("Check now", primary: true)
+        {
+            Bounds = new Rectangle(96, y, 100, 30),
+        };
         checkButton.Click += (_, _) =>
         {
             SaveFeed();
             _checkForUpdates();
         };
-        _content.Controls.Add(checkButton);
+        panel.Controls.Add(checkButton);
 
-        _y += 36;
+        var openSettingsButton = new PillButton("Open settings")
+        {
+            Bounds = new Rectangle(208, y, 112, 30),
+        };
+        openSettingsButton.Click += (_, _) => OpenSettingsFile();
+        panel.Controls.Add(openSettingsButton);
+        y += 40;
 
-        _feedStatus = AddLabel(string.Empty, new Rectangle(20, _y, 520, 22), Palette.TextMuted, 8.5F);
-        _y += 26;
+        _feedStatus = AddNote(panel, ref y, string.Empty, 20);
 
-        AddLabel(
+        AddNote(
+            panel,
+            ref y,
             $"Settings file: {SettingsService.SettingsFilePath}",
-            new Rectangle(20, _y, 520, 22),
-            Palette.TextMuted,
-            8F);
-        _y += 34;
+            22);
     }
 
-    private void BuildAboutSection()
+    private void BuildAboutSection(Panel panel)
     {
-        AddSection("About");
+        int y = AddPageHeader(
+            panel,
+            "About",
+            "A lightweight tray utility for Windows appearance.",
+            0);
 
         AddLabel(
+            panel,
             $"Quick Theme {AppInfo.DisplayVersion}",
-            new Rectangle(20, _y, 520, 24),
+            new Rectangle(8, y, 420, 26),
             Palette.Text,
-            9.5F,
+            12F,
             FontStyle.Bold);
-        _y += 24;
+        y += 30;
+
+        AddNote(panel, ref y, "MIT License · open source · Windows 10/11 · .NET 10", 22);
+
+        var githubButton = new PillButton("GitHub");
+        githubButton.Bounds = new Rectangle(8, y, 100, 30);
+        githubButton.Click += (_, _) => OpenUrl("https://github.com/riad-boussaid/quick-theme");
+        panel.Controls.Add(githubButton);
+
+        var releasesButton = new PillButton("Releases");
+        releasesButton.Bounds = new Rectangle(116, y, 100, 30);
+        releasesButton.Click += (_, _) => OpenUrl("https://github.com/riad-boussaid/quick-theme/releases/latest");
+        panel.Controls.Add(releasesButton);
+
+        var licenseButton = new PillButton("License");
+        licenseButton.Bounds = new Rectangle(224, y, 100, 30);
+        licenseButton.Click += (_, _) => OpenUrl("https://github.com/riad-boussaid/quick-theme/blob/main/LICENSE");
+        panel.Controls.Add(licenseButton);
+        y += 40;
+
+        AddNote(
+            panel,
+            ref y,
+            "github.com/riad-boussaid/quick-theme",
+            22);
+    }
+
+    private int AddPageHeader(Panel panel, string title, string subtitle, int y)
+    {
+        AddLabel(
+            panel,
+            title,
+            new Rectangle(8, y, 420, 30),
+            Palette.Text,
+            14F,
+            FontStyle.Bold);
 
         AddLabel(
-            "MIT License · open source · github.com/riad-boussaid/quick-theme",
-            new Rectangle(20, _y, 520, 22),
+            panel,
+            subtitle,
+            new Rectangle(8, y + 30, 420, 20),
             Palette.TextMuted,
             8.5F);
-        _y += 30;
 
-        Button githubButton = CreateButton("GitHub", 80);
-        githubButton.Location = new Point(20, _y);
-        githubButton.Click += (_, _) => OpenUrl("https://github.com/riad-boussaid/quick-theme");
-        _content.Controls.Add(githubButton);
-
-        Button releasesButton = CreateButton("Releases", 80);
-        releasesButton.Location = new Point(108, _y);
-        releasesButton.Click += (_, _) => OpenUrl("https://github.com/riad-boussaid/quick-theme/releases/latest");
-        _content.Controls.Add(releasesButton);
-
-        Button licenseButton = CreateButton("License", 80);
-        licenseButton.Location = new Point(196, _y);
-        licenseButton.Click += (_, _) => OpenUrl("https://github.com/riad-boussaid/quick-theme/blob/main/LICENSE");
-        _content.Controls.Add(licenseButton);
-
-        _y += 38;
+        return y + 60;
     }
 
-    private void LoadSettings()
-    {
-        AppSettings settings = SettingsService.Current;
-
-        _scheduleEnabledRow.SetCheckedSilently(settings.ScheduleEnabled);
-        _schedulePausedRow.SetCheckedSilently(settings.SchedulePaused);
-        _modeControl.SelectedIndex = (int)settings.ScheduleMode;
-        _lightHour.Value = settings.ScheduleLightTime.Hour;
-        _lightMinute.Value = settings.ScheduleLightTime.Minute;
-        _darkHour.Value = settings.ScheduleDarkTime.Hour;
-        _darkMinute.Value = settings.ScheduleDarkTime.Minute;
-        _latitude.Value = (decimal)Math.Clamp(settings.ScheduleLatitude, -90d, 90d);
-        _longitude.Value = (decimal)Math.Clamp(settings.ScheduleLongitude, -180d, 180d);
-        _scopeControl.SelectedIndex = (int)settings.ScheduleScope;
-        _daysControl.SelectedIndex = (int)settings.ScheduleDays;
-        _startWithWindowsRow.SetCheckedSilently(StartupService.IsEnabled);
-        _startupUpdatesRow.SetCheckedSilently(settings.CheckForUpdatesOnStartup);
-        _toggleHotkeyBox.Text = settings.HotkeyToggleDark;
-        _openHotkeyBox.Text = settings.HotkeyOpenPanel;
-        _feedBox.Text = settings.UpdateFeedUrl;
-    }
-
-    private void AddSection(string title)
-    {
-        _y += 6;
-
-        var header = new Label
-        {
-            Text = title,
-            AutoSize = false,
-            Bounds = new Rectangle(20, _y, 520, 26),
-            ForeColor = Palette.Text,
-            BackColor = Color.Transparent,
-            Font = new Font("Segoe UI Semibold", 12F),
-        };
-        _content.Controls.Add(header);
-        _y += 30;
-
-        var separator = new Panel
-        {
-            Bounds = new Rectangle(20, _y, 520, 1),
-            BackColor = Palette.Separator,
-        };
-        _content.Controls.Add(separator);
-        _y += 10;
-    }
-
-    private ThemeRow AddToggleRow(string title, string subtitle)
+    private ThemeRow AddToggleRow(Panel panel, ref int y, string title, string subtitle)
     {
         var row = new ThemeRow(title, subtitle, "On", "Off")
         {
-            Bounds = new Rectangle(16, _y, 528, 56),
+            Bounds = new Rectangle(2, y, 426, 50),
         };
-        _content.Controls.Add(row);
-        _y += 56;
+        panel.Controls.Add(row);
+        y += 54;
         return row;
     }
 
-    private (NumericUpDown Hour, NumericUpDown Minute) AddTimeRow(string label)
+    private void AddSegmentedRow(Panel panel, ref int y, string label, SegmentedControl control)
     {
-        AddLabel(label, new Rectangle(20, _y + 3, 160, 26), Palette.Text, 9F);
-
-        NumericUpDown hour = CreateNumeric(0, 23, new Point(200, _y));
-        AddLabel(":", new Rectangle(258, _y, 10, 28), Palette.TextMuted, 10F);
-        NumericUpDown minute = CreateNumeric(0, 59, new Point(274, _y));
-
-        _y += 38;
-        return (hour, minute);
+        AddLabel(panel, label, new Rectangle(8, y + 3, 120, 26), Palette.Text, 9F);
+        control.Bounds = new Rectangle(140, y, 290, 30);
+        panel.Controls.Add(control);
+        y += 38;
     }
 
-    private void AddChoiceRow(string label, SegmentedControl control)
+    private void AddFieldRow(Panel panel, ref int y, string label, RoundedTextBox box, int width)
     {
-        AddLabel(label, new Rectangle(20, _y + 3, 160, 26), Palette.Text, 9F);
-        control.Bounds = new Rectangle(200, _y, 330, 30);
-        _content.Controls.Add(control);
-        _y += 40;
+        AddLabel(panel, label, new Rectangle(8, y + 3, 120, 26), Palette.Text, 9F);
+        box.Bounds = new Rectangle(140, y, width, 30);
+        panel.Controls.Add(box);
+        y += 38;
     }
 
-    private NumericUpDown CreateNumeric(int minimum, int maximum, Point location)
+    private Label AddNote(Panel panel, ref int y, string text, int height = 20)
     {
-        var control = new NumericUpDown
-        {
-            Minimum = minimum,
-            Maximum = maximum,
-            Bounds = new Rectangle(location.X, location.Y, 56, 28),
-            BackColor = Palette.MenuSurface,
-            ForeColor = Palette.Text,
-            BorderStyle = BorderStyle.FixedSingle,
-            Font = new Font("Segoe UI", 10F),
-            TextAlign = HorizontalAlignment.Right,
-        };
-        _content.Controls.Add(control);
-        return control;
+        var label = AddLabel(panel, text, new Rectangle(8, y, 420, height), Palette.TextMuted, 8.5F);
+        y += height + 4;
+        return label;
     }
 
-    private NumericUpDown CreateCoordinate(int minimum, int maximum, Point location)
-    {
-        var control = new NumericUpDown
-        {
-            Minimum = minimum,
-            Maximum = maximum,
-            DecimalPlaces = 4,
-            Increment = 0.1m,
-            Bounds = new Rectangle(location.X, location.Y, 120, 28),
-            BackColor = Palette.MenuSurface,
-            ForeColor = Palette.Text,
-            BorderStyle = BorderStyle.FixedSingle,
-            Font = new Font("Segoe UI", 9F),
-            TextAlign = HorizontalAlignment.Right,
-        };
-        _content.Controls.Add(control);
-        return control;
-    }
-
-    private TextBox CreateHotkeyBox(Rectangle bounds)
-    {
-        var control = new TextBox
-        {
-            Bounds = bounds,
-            ReadOnly = true,
-            BackColor = Palette.MenuSurface,
-            ForeColor = Palette.Text,
-            BorderStyle = BorderStyle.FixedSingle,
-            Font = new Font("Segoe UI", 9F),
-            Cursor = Cursors.Hand,
-        };
-        control.KeyDown += OnHotkeyBoxKeyDown;
-        _content.Controls.Add(control);
-        return control;
-    }
-
-    private Label AddLabel(
+    private static Label AddLabel(
+        Panel panel,
         string text,
         Rectangle bounds,
         Color color,
-        float size = 9F,
+        float size,
         FontStyle style = FontStyle.Regular)
     {
         var label = new Label
@@ -497,30 +594,130 @@ internal sealed class SettingsForm : Form
             Font = new Font("Segoe UI", size, style),
             TextAlign = ContentAlignment.MiddleLeft,
         };
-        _content.Controls.Add(label);
+        panel.Controls.Add(label);
         return label;
     }
 
-    private Button CreateButton(string text, int width)
+    private static RoundedTextBox CreateBox(
+        bool readOnly = false,
+        bool center = false,
+        string? placeholder = null)
     {
-        var button = new Button
-        {
-            Text = text,
-            AutoSize = false,
-            Width = width,
-            Height = 28,
-            FlatStyle = FlatStyle.Flat,
-            BackColor = Palette.MenuHover,
-            ForeColor = Palette.Text,
-            Font = new Font("Segoe UI", 8.75F),
-            Cursor = Cursors.Hand,
-            UseVisualStyleBackColor = false,
-        };
+        var box = new RoundedTextBox();
+        box.InnerTextBox.ReadOnly = readOnly;
+        box.InnerTextBox.TextAlign = center ? HorizontalAlignment.Center : HorizontalAlignment.Left;
+        box.InnerTextBox.PlaceholderText = placeholder ?? string.Empty;
 
-        button.FlatAppearance.BorderColor = Palette.Border;
-        button.FlatAppearance.MouseOverBackColor = Palette.RowHover;
-        button.FlatAppearance.MouseDownBackColor = Palette.Border;
-        return button;
+        if (readOnly)
+        {
+            box.Cursor = Cursors.Hand;
+            box.InnerTextBox.Cursor = Cursors.Hand;
+        }
+
+        return box;
+    }
+
+    private void HookEvents()
+    {
+        _scheduleEnabledRow.CheckedChanged += OnScheduleEnabledChanged;
+        _schedulePausedRow.CheckedChanged += OnSchedulePausedChanged;
+        _modeControl.SelectedIndexChanged += OnScheduleModeChanged;
+        _scopeControl.SelectedIndexChanged += OnScheduleOptionChanged;
+        _daysControl.SelectedIndexChanged += OnScheduleOptionChanged;
+
+        _lightTimeBox.InnerTextBox.Leave += OnScheduleFieldLeave;
+        _darkTimeBox.InnerTextBox.Leave += OnScheduleFieldLeave;
+        _latitudeBox.InnerTextBox.Leave += OnScheduleFieldLeave;
+        _longitudeBox.InnerTextBox.Leave += OnScheduleFieldLeave;
+
+        _startWithWindowsRow.CheckedChanged += OnStartWithWindowsChanged;
+        _startupUpdatesRow.CheckedChanged += OnStartupUpdatesChanged;
+
+        _toggleHotkeyBox.InnerTextBox.KeyDown += OnHotkeyBoxKeyDown;
+        _openHotkeyBox.InnerTextBox.KeyDown += OnHotkeyBoxKeyDown;
+    }
+
+    private void LoadSettings()
+    {
+        AppSettings settings = SettingsService.Current;
+
+        _scheduleEnabledRow.SetCheckedSilently(settings.ScheduleEnabled);
+        _schedulePausedRow.SetCheckedSilently(settings.SchedulePaused);
+        _modeControl.SelectedIndex = (int)settings.ScheduleMode;
+        _scopeControl.SelectedIndex = (int)settings.ScheduleScope;
+        _daysControl.SelectedIndex = (int)settings.ScheduleDays;
+        _startWithWindowsRow.SetCheckedSilently(StartupService.IsEnabled);
+        _startupUpdatesRow.SetCheckedSilently(settings.CheckForUpdatesOnStartup);
+        _toggleHotkeyBox.InnerTextBox.Text = settings.HotkeyToggleDark;
+        _openHotkeyBox.InnerTextBox.Text = settings.HotkeyOpenPanel;
+        _feedBox.InnerTextBox.Text = settings.UpdateFeedUrl;
+
+        SetScheduleTextFields();
+    }
+
+    private void SetScheduleTextFields()
+    {
+        AppSettings settings = SettingsService.Current;
+        _lightTimeBox.InnerTextBox.Text = settings.ScheduleLightTime.ToString("HH:mm", CultureInfo.CurrentCulture);
+        _darkTimeBox.InnerTextBox.Text = settings.ScheduleDarkTime.ToString("HH:mm", CultureInfo.CurrentCulture);
+        _latitudeBox.InnerTextBox.Text = settings.ScheduleLatitude.ToString("0.####", CultureInfo.CurrentCulture);
+        _longitudeBox.InnerTextBox.Text = settings.ScheduleLongitude.ToString("0.####", CultureInfo.CurrentCulture);
+    }
+
+    public void RefreshFromSettings()
+    {
+        _loading = true;
+        try
+        {
+            LoadSettings();
+        }
+        finally
+        {
+            _loading = false;
+        }
+
+        UpdateScheduleStatus();
+    }
+
+    private void ShowSection(int index)
+    {
+        for (int section = 0; section < _sections.Length; section++)
+        {
+            bool visible = section == index;
+            _sections[section].Visible = visible;
+            _navButtons[section].SetSelected(visible);
+        }
+    }
+
+    private void LayoutUi()
+    {
+        if (_header is null || _sections is null)
+        {
+            return;
+        }
+
+        _header.Bounds = new Rectangle(0, 0, ClientSize.Width, Scale(64));
+        _closeButton.Location = new Point(ClientSize.Width - Scale(16) - _closeButton.Width, Scale(18));
+
+        int contentLeft = Scale(200);
+        int contentTop = _header.Bottom + Scale(16);
+        int contentWidth = Math.Max(0, ClientSize.Width - contentLeft - Scale(16));
+        int contentHeight = Math.Max(0, ClientSize.Height - contentTop - Scale(16));
+
+        foreach (Panel panel in _sections)
+        {
+            panel.Bounds = new Rectangle(contentLeft, contentTop, contentWidth, contentHeight);
+        }
+
+        _footer.Location = new Point(Scale(18), ClientSize.Height - Scale(32));
+    }
+
+    private void UpdateWindowRegion()
+    {
+        using var path = Ui.RoundedRect(new RectangleF(0f, 0f, Width, Height), Scale(14));
+        Region? oldRegion = Region;
+        Region = new Region(path);
+        oldRegion?.Dispose();
     }
 
     private void OnScheduleEnabledChanged(object? sender, EventArgs e)
@@ -568,32 +765,63 @@ internal sealed class SettingsForm : Form
         SaveAndNotifySchedule();
     }
 
-    private void OnScheduleLocationChanged(object? sender, EventArgs e)
+    private void OnScheduleFieldLeave(object? sender, EventArgs e)
     {
         if (_loading)
         {
             return;
         }
 
-        SettingsService.Current.ScheduleLatitude = (double)_latitude.Value;
-        SettingsService.Current.ScheduleLongitude = (double)_longitude.Value;
+        CommitScheduleFields();
+    }
+
+    private void CommitScheduleFields()
+    {
+        if (!TimeOnly.TryParse(
+                _lightTimeBox.InnerTextBox.Text,
+                CultureInfo.CurrentCulture,
+                DateTimeStyles.None,
+                out TimeOnly light) ||
+            !TimeOnly.TryParse(
+                _darkTimeBox.InnerTextBox.Text,
+                CultureInfo.CurrentCulture,
+                DateTimeStyles.None,
+                out TimeOnly dark) ||
+            !TryParseCoordinate(_latitudeBox.InnerTextBox.Text, -90, 90, out double latitude) ||
+            !TryParseCoordinate(_longitudeBox.InnerTextBox.Text, -180, 180, out double longitude))
+        {
+            SetScheduleTextFields();
+            _scheduleStatus.ForeColor = Palette.Danger;
+            _scheduleStatus.Text = "Enter a valid time and coordinate range.";
+            return;
+        }
+
+        SettingsService.Current.ScheduleLightTime = light;
+        SettingsService.Current.ScheduleDarkTime = dark;
+        SettingsService.Current.ScheduleLatitude = latitude;
+        SettingsService.Current.ScheduleLongitude = longitude;
+
+        SetScheduleTextFields();
         SaveAndNotifySchedule();
     }
 
-    private void OnScheduleTimeChanged(object? sender, EventArgs e)
+    private static bool TryParseCoordinate(string text, double minimum, double maximum, out double value)
     {
-        if (_loading)
+        if (!double.TryParse(
+                text,
+                NumberStyles.Float,
+                CultureInfo.CurrentCulture,
+                out value) &&
+            !double.TryParse(
+                text,
+                NumberStyles.Float,
+                CultureInfo.InvariantCulture,
+                out value))
         {
-            return;
+            return false;
         }
 
-        SettingsService.Current.ScheduleLightTime = new TimeOnly(
-            (int)_lightHour.Value,
-            (int)_lightMinute.Value);
-        SettingsService.Current.ScheduleDarkTime = new TimeOnly(
-            (int)_darkHour.Value,
-            (int)_darkMinute.Value);
-        SaveAndNotifySchedule();
+        return value >= minimum && value <= maximum;
     }
 
     private void OnStartWithWindowsChanged(object? sender, EventArgs e)
@@ -613,30 +841,6 @@ internal sealed class SettingsForm : Form
 
         SettingsService.Current.CheckForUpdatesOnStartup = _startupUpdatesRow.Checked;
         SettingsService.Save();
-    }
-
-    private void SaveFeed()
-    {
-        SettingsService.Current.UpdateFeedUrl = _feedBox.Text.Trim();
-        SettingsService.Save();
-        _feedStatus.Text = "Saved.";
-    }
-
-    private void ApplyHotkeyChanges()
-    {
-        string? error = _applyHotkeys(_toggleHotkeyBox.Text, _openHotkeyBox.Text);
-
-        if (error is not null)
-        {
-            _hotkeyStatus.ForeColor = Palette.Danger;
-            _hotkeyStatus.Text = error;
-            return;
-        }
-
-        _toggleHotkeyBox.Text = SettingsService.Current.HotkeyToggleDark;
-        _openHotkeyBox.Text = SettingsService.Current.HotkeyOpenPanel;
-        _hotkeyStatus.ForeColor = Palette.TextMuted;
-        _hotkeyStatus.Text = "Hotkeys applied.";
     }
 
     private void OnHotkeyBoxKeyDown(object? sender, KeyEventArgs e)
@@ -679,7 +883,49 @@ internal sealed class SettingsForm : Form
 
         box.Text = new HotkeyGesture(modifiers, e.KeyCode).ToString();
         _hotkeyStatus.ForeColor = Palette.TextMuted;
-        _hotkeyStatus.Text = "Press Apply hotkeys to confirm.";
+        _hotkeyStatus.Text = "Apply to confirm.";
+    }
+
+    private void ApplyHotkeyChanges()
+    {
+        string? error = _applyHotkeys(
+            _toggleHotkeyBox.InnerTextBox.Text,
+            _openHotkeyBox.InnerTextBox.Text);
+
+        if (error is not null)
+        {
+            _hotkeyStatus.ForeColor = Palette.Danger;
+            _hotkeyStatus.Text = error;
+            return;
+        }
+
+        _toggleHotkeyBox.InnerTextBox.Text = SettingsService.Current.HotkeyToggleDark;
+        _openHotkeyBox.InnerTextBox.Text = SettingsService.Current.HotkeyOpenPanel;
+        _hotkeyStatus.ForeColor = Palette.TextMuted;
+        _hotkeyStatus.Text = "Hotkeys applied.";
+    }
+
+    private void SaveFeed()
+    {
+        SettingsService.Current.UpdateFeedUrl = _feedBox.InnerTextBox.Text.Trim();
+        SettingsService.Save();
+        _feedStatus.Text = "Saved.";
+    }
+
+    private static void OpenSettingsFile()
+    {
+        try
+        {
+            SettingsService.EnsureSettingsFile();
+            Process.Start(new ProcessStartInfo(SettingsService.SettingsFilePath)
+            {
+                UseShellExecute = true,
+            });
+        }
+        catch
+        {
+            // Best effort.
+        }
     }
 
     private void SaveAndNotifySchedule()
@@ -721,6 +967,20 @@ internal sealed class SettingsForm : Form
             : $"Next switch: {next.Value.At:ddd HH:mm} → {(next.Value.Dark ? "Dark" : "Light")}";
     }
 
+    private void AttachDrag(Control control)
+    {
+        control.MouseDown += (_, e) =>
+        {
+            if (e.Button == MouseButtons.Left)
+            {
+                ReleaseCapture();
+                _ = SendMessage(Handle, WmNcLButtonDown, (IntPtr)HtCaption, IntPtr.Zero);
+            }
+        };
+    }
+
+    private int Scale(int value) => (int)Math.Round(value * DeviceDpi / 96.0);
+
     private static void OpenUrl(string url)
     {
         try
@@ -733,8 +993,11 @@ internal sealed class SettingsForm : Form
         }
     }
 
-    [DllImport("dwmapi.dll")]
-    private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int value, int size);
+    [DllImport("user32.dll")]
+    private static extern bool ReleaseCapture();
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
 
     [DllImport("uxtheme.dll", CharSet = CharSet.Unicode)]
     private static extern int SetWindowTheme(IntPtr hwnd, string? subAppName, string? subIdList);

@@ -97,7 +97,7 @@ This creates:
 Useful options:
 
 ```powershell
-.\publish.ps1 -Version 1.4.0
+.\publish.ps1 -Version 1.5.0
 .\publish.ps1 -FeedUrl "https://example.com/quick-theme/update.json"
 .\publish.ps1 -UpdateUrl "https://example.com/quick-theme/quick-theme.exe"
 .\publish.ps1 -SkipInstaller
@@ -218,7 +218,7 @@ The app checks an update manifest like this:
 
 ```json
 {
-  "version": "1.4.0",
+  "version": "1.5.0",
   "url": "quick-theme.exe",
   "sha256": "lowercase-sha256-of-the-exe",
   "notes": "What changed in this version"

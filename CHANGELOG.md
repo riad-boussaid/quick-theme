@@ -2,6 +2,17 @@
 
 All notable changes to Quick Theme are documented here.
 
+## [1.5.0] - 2026-11-09
+
+### Changed
+
+- Redesigned the settings window with a borderless flyout-style layout
+- Added sidebar navigation for General, Schedule, Hotkeys, Updates, and About
+- Replaced native inputs with rounded fields and pill buttons
+- Added custom light and dark settings themes with matching typography and spacing
+- Added inline validation for schedule times and coordinates
+- Added an Open settings action in the Updates section
+
 ## [1.4.0] - 2026-11-09
 
 ### Added
