@@ -16,10 +16,15 @@ public sealed class SettingsServiceTests
             LastUpdateCheckUtc = new DateTimeOffset(2026, 11, 9, 13, 0, 0, TimeSpan.Zero),
             ScheduleEnabled = true,
             SchedulePaused = true,
+            ScheduleMode = ScheduleMode.SunriseSunset,
             ScheduleLightTime = new TimeOnly(6, 30),
             ScheduleDarkTime = new TimeOnly(20, 15),
+            ScheduleLatitude = 51.5074,
+            ScheduleLongitude = -0.1278,
             ScheduleScope = ScheduleScope.Apps,
             ScheduleDays = ScheduleDays.Weekdays,
+            HotkeyToggleDark = "Ctrl+Shift+D",
+            HotkeyOpenPanel = "Ctrl+Shift+Q",
         };
 
         string json = SettingsService.Serialize(settings);
@@ -31,10 +36,15 @@ public sealed class SettingsServiceTests
         Assert.Equal(settings.LastUpdateCheckUtc, roundTripped.LastUpdateCheckUtc);
         Assert.True(roundTripped.ScheduleEnabled);
         Assert.True(roundTripped.SchedulePaused);
+        Assert.Equal(ScheduleMode.SunriseSunset, roundTripped.ScheduleMode);
         Assert.Equal(new TimeOnly(6, 30), roundTripped.ScheduleLightTime);
         Assert.Equal(new TimeOnly(20, 15), roundTripped.ScheduleDarkTime);
+        Assert.Equal(51.5074, roundTripped.ScheduleLatitude);
+        Assert.Equal(-0.1278, roundTripped.ScheduleLongitude);
         Assert.Equal(ScheduleScope.Apps, roundTripped.ScheduleScope);
         Assert.Equal(ScheduleDays.Weekdays, roundTripped.ScheduleDays);
+        Assert.Equal("Ctrl+Shift+D", roundTripped.HotkeyToggleDark);
+        Assert.Equal("Ctrl+Shift+Q", roundTripped.HotkeyOpenPanel);
     }
 
     [Fact]

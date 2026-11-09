@@ -1,5 +1,11 @@
 namespace QuickTheme.Models;
 
+internal enum ScheduleMode
+{
+    FixedTimes,
+    SunriseSunset,
+}
+
 internal enum ScheduleScope
 {
     Both,
@@ -22,3 +28,5 @@ internal enum ThemePreset
 }
 
 internal readonly record struct ScheduleTransition(DateTime At, bool Dark);
+
+internal readonly record struct SunTimes(DateTime? SunriseUtc, DateTime? SunsetUtc);

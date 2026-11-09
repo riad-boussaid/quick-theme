@@ -13,28 +13,39 @@ internal sealed class SettingsForm : Form
 
     private readonly Action _scheduleChanged;
     private readonly Action _checkForUpdates;
+    private readonly Func<string, string, string?> _applyHotkeys;
     private readonly Panel _content;
 
     private ThemeRow _scheduleEnabledRow = null!;
     private ThemeRow _schedulePausedRow = null!;
+    private SegmentedControl _modeControl = null!;
     private NumericUpDown _lightHour = null!;
     private NumericUpDown _lightMinute = null!;
     private NumericUpDown _darkHour = null!;
     private NumericUpDown _darkMinute = null!;
+    private NumericUpDown _latitude = null!;
+    private NumericUpDown _longitude = null!;
     private SegmentedControl _scopeControl = null!;
     private SegmentedControl _daysControl = null!;
     private Label _scheduleStatus = null!;
     private ThemeRow _startWithWindowsRow = null!;
     private ThemeRow _startupUpdatesRow = null!;
+    private TextBox _toggleHotkeyBox = null!;
+    private TextBox _openHotkeyBox = null!;
+    private Label _hotkeyStatus = null!;
     private TextBox _feedBox = null!;
     private Label _feedStatus = null!;
     private int _y = 12;
     private bool _loading = true;
 
-    public SettingsForm(Action scheduleChanged, Action checkForUpdates)
+    public SettingsForm(
+        Action scheduleChanged,
+        Action checkForUpdates,
+        Func<string, string, string?> applyHotkeys)
     {
         _scheduleChanged = scheduleChanged;
         _checkForUpdates = checkForUpdates;
+        _applyHotkeys = applyHotkeys;
 
         Palette.Apply(SettingsService.Current.FlyoutTheme, ThemeService.SystemUsesDarkTheme);
 
@@ -64,6 +75,7 @@ internal sealed class SettingsForm : Form
 
         BuildScheduleSection();
         BuildGeneralSection();
+        BuildHotkeysSection();
         BuildUpdatesSection();
         BuildAboutSection();
 
@@ -72,12 +84,15 @@ internal sealed class SettingsForm : Form
 
         _scheduleEnabledRow.CheckedChanged += OnScheduleEnabledChanged;
         _schedulePausedRow.CheckedChanged += OnSchedulePausedChanged;
+        _modeControl.SelectedIndexChanged += OnScheduleModeChanged;
         _scopeControl.SelectedIndexChanged += OnScheduleOptionChanged;
         _daysControl.SelectedIndexChanged += OnScheduleOptionChanged;
         _lightHour.ValueChanged += OnScheduleTimeChanged;
         _lightMinute.ValueChanged += OnScheduleTimeChanged;
         _darkHour.ValueChanged += OnScheduleTimeChanged;
         _darkMinute.ValueChanged += OnScheduleTimeChanged;
+        _latitude.ValueChanged += OnScheduleLocationChanged;
+        _longitude.ValueChanged += OnScheduleLocationChanged;
         _startWithWindowsRow.CheckedChanged += OnStartWithWindowsChanged;
         _startupUpdatesRow.CheckedChanged += OnStartupUpdatesChanged;
 
@@ -85,18 +100,24 @@ internal sealed class SettingsForm : Form
     }
 
     public void RefreshFromSettings()
-    {        AppSettings settings = SettingsService.Current;
+    {
+        AppSettings settings = SettingsService.Current;
         _loading = true;
         try
         {
             _scheduleEnabledRow.SetCheckedSilently(settings.ScheduleEnabled);
             _schedulePausedRow.SetCheckedSilently(settings.SchedulePaused);
+            _modeControl.SelectedIndex = (int)settings.ScheduleMode;
             _scopeControl.SelectedIndex = (int)settings.ScheduleScope;
             _daysControl.SelectedIndex = (int)settings.ScheduleDays;
             _lightHour.Value = settings.ScheduleLightTime.Hour;
             _lightMinute.Value = settings.ScheduleLightTime.Minute;
             _darkHour.Value = settings.ScheduleDarkTime.Hour;
             _darkMinute.Value = settings.ScheduleDarkTime.Minute;
+            _latitude.Value = (decimal)Math.Clamp(settings.ScheduleLatitude, -90d, 90d);
+            _longitude.Value = (decimal)Math.Clamp(settings.ScheduleLongitude, -180d, 180d);
+            _toggleHotkeyBox.Text = settings.HotkeyToggleDark;
+            _openHotkeyBox.Text = settings.HotkeyOpenPanel;
         }
         finally
         {
@@ -151,8 +172,29 @@ internal sealed class SettingsForm : Form
             "Enable schedule",
             "Automatically switch themes on a daily schedule");
 
+        _modeControl = new SegmentedControl
+        {
+            Options = ["Fixed times", "Sunrise/sunset"],
+        };
+        AddChoiceRow("Mode", _modeControl);
+
         (_lightHour, _lightMinute) = AddTimeRow("Light time");
         (_darkHour, _darkMinute) = AddTimeRow("Dark time");
+
+        AddLabel("Latitude", new Rectangle(20, _y + 3, 160, 26), Palette.Text, 9F);
+        _latitude = CreateCoordinate(-90, 90, new Point(200, _y));
+        _y += 38;
+
+        AddLabel("Longitude", new Rectangle(20, _y + 3, 160, 26), Palette.Text, 9F);
+        _longitude = CreateCoordinate(-180, 180, new Point(200, _y));
+        _y += 38;
+
+        AddLabel(
+            "Sunrise/sunset uses your location and local time; fixed times are fallback.",
+            new Rectangle(20, _y, 520, 22),
+            Palette.TextMuted,
+            8.5F);
+        _y += 28;
 
         _scopeControl = new SegmentedControl
         {
@@ -187,15 +229,40 @@ internal sealed class SettingsForm : Form
             "At most once every 24 hours");
 
         AddLabel(
-            "Hotkeys: Ctrl+Alt+D toggles dark mode · Ctrl+Alt+Q opens the flyout.",
+            "Flyout theme and quick presets are available from the tray menu.",
             new Rectangle(20, _y, 520, 24),
             Palette.TextMuted,
             8.5F);
-        _y += 28;
+        _y += 34;
+    }
+
+    private void BuildHotkeysSection()
+    {
+        AddSection("Hotkeys");
+
+        AddLabel("Toggle dark mode", new Rectangle(20, _y + 3, 160, 26), Palette.Text, 9F);
+        _toggleHotkeyBox = CreateHotkeyBox(new Rectangle(200, _y, 190, 28));
+        _y += 38;
+
+        AddLabel("Open flyout", new Rectangle(20, _y + 3, 160, 26), Palette.Text, 9F);
+        _openHotkeyBox = CreateHotkeyBox(new Rectangle(200, _y, 190, 28));
+        _y += 38;
+
+        Button applyButton = CreateButton("Apply hotkeys", 110);
+        applyButton.Location = new Point(200, _y);
+        applyButton.Click += (_, _) => ApplyHotkeyChanges();
+        _content.Controls.Add(applyButton);
+
+        _hotkeyStatus = AddLabel(
+            string.Empty,
+            new Rectangle(320, _y, 220, 28),
+            Palette.TextMuted,
+            8.5F);
+        _y += 38;
 
         AddLabel(
-            "Flyout theme and quick presets are available from the tray menu.",
-            new Rectangle(20, _y, 520, 24),
+            "Click a box and press a combination including Ctrl, Alt, or Shift.",
+            new Rectangle(20, _y, 520, 22),
             Palette.TextMuted,
             8.5F);
         _y += 34;
@@ -288,14 +355,19 @@ internal sealed class SettingsForm : Form
 
         _scheduleEnabledRow.SetCheckedSilently(settings.ScheduleEnabled);
         _schedulePausedRow.SetCheckedSilently(settings.SchedulePaused);
+        _modeControl.SelectedIndex = (int)settings.ScheduleMode;
         _lightHour.Value = settings.ScheduleLightTime.Hour;
         _lightMinute.Value = settings.ScheduleLightTime.Minute;
         _darkHour.Value = settings.ScheduleDarkTime.Hour;
         _darkMinute.Value = settings.ScheduleDarkTime.Minute;
+        _latitude.Value = (decimal)Math.Clamp(settings.ScheduleLatitude, -90d, 90d);
+        _longitude.Value = (decimal)Math.Clamp(settings.ScheduleLongitude, -180d, 180d);
         _scopeControl.SelectedIndex = (int)settings.ScheduleScope;
         _daysControl.SelectedIndex = (int)settings.ScheduleDays;
         _startWithWindowsRow.SetCheckedSilently(StartupService.IsEnabled);
         _startupUpdatesRow.SetCheckedSilently(settings.CheckForUpdatesOnStartup);
+        _toggleHotkeyBox.Text = settings.HotkeyToggleDark;
+        _openHotkeyBox.Text = settings.HotkeyOpenPanel;
         _feedBox.Text = settings.UpdateFeedUrl;
     }
 
@@ -368,6 +440,42 @@ internal sealed class SettingsForm : Form
             Font = new Font("Segoe UI", 10F),
             TextAlign = HorizontalAlignment.Right,
         };
+        _content.Controls.Add(control);
+        return control;
+    }
+
+    private NumericUpDown CreateCoordinate(int minimum, int maximum, Point location)
+    {
+        var control = new NumericUpDown
+        {
+            Minimum = minimum,
+            Maximum = maximum,
+            DecimalPlaces = 4,
+            Increment = 0.1m,
+            Bounds = new Rectangle(location.X, location.Y, 120, 28),
+            BackColor = Palette.MenuSurface,
+            ForeColor = Palette.Text,
+            BorderStyle = BorderStyle.FixedSingle,
+            Font = new Font("Segoe UI", 9F),
+            TextAlign = HorizontalAlignment.Right,
+        };
+        _content.Controls.Add(control);
+        return control;
+    }
+
+    private TextBox CreateHotkeyBox(Rectangle bounds)
+    {
+        var control = new TextBox
+        {
+            Bounds = bounds,
+            ReadOnly = true,
+            BackColor = Palette.MenuSurface,
+            ForeColor = Palette.Text,
+            BorderStyle = BorderStyle.FixedSingle,
+            Font = new Font("Segoe UI", 9F),
+            Cursor = Cursors.Hand,
+        };
+        control.KeyDown += OnHotkeyBoxKeyDown;
         _content.Controls.Add(control);
         return control;
     }
@@ -449,6 +557,29 @@ internal sealed class SettingsForm : Form
         SaveAndNotifySchedule();
     }
 
+    private void OnScheduleModeChanged(object? sender, EventArgs e)
+    {
+        if (_loading)
+        {
+            return;
+        }
+
+        SettingsService.Current.ScheduleMode = (ScheduleMode)_modeControl.SelectedIndex;
+        SaveAndNotifySchedule();
+    }
+
+    private void OnScheduleLocationChanged(object? sender, EventArgs e)
+    {
+        if (_loading)
+        {
+            return;
+        }
+
+        SettingsService.Current.ScheduleLatitude = (double)_latitude.Value;
+        SettingsService.Current.ScheduleLongitude = (double)_longitude.Value;
+        SaveAndNotifySchedule();
+    }
+
     private void OnScheduleTimeChanged(object? sender, EventArgs e)
     {
         if (_loading)
@@ -491,6 +622,66 @@ internal sealed class SettingsForm : Form
         _feedStatus.Text = "Saved.";
     }
 
+    private void ApplyHotkeyChanges()
+    {
+        string? error = _applyHotkeys(_toggleHotkeyBox.Text, _openHotkeyBox.Text);
+
+        if (error is not null)
+        {
+            _hotkeyStatus.ForeColor = Palette.Danger;
+            _hotkeyStatus.Text = error;
+            return;
+        }
+
+        _toggleHotkeyBox.Text = SettingsService.Current.HotkeyToggleDark;
+        _openHotkeyBox.Text = SettingsService.Current.HotkeyOpenPanel;
+        _hotkeyStatus.ForeColor = Palette.TextMuted;
+        _hotkeyStatus.Text = "Hotkeys applied.";
+    }
+
+    private void OnHotkeyBoxKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (sender is not TextBox box || e.KeyCode is Keys.Tab or Keys.Escape)
+        {
+            return;
+        }
+
+        e.SuppressKeyPress = true;
+        e.Handled = true;
+
+        if (e.KeyCode is Keys.ControlKey or Keys.Menu or Keys.ShiftKey or Keys.LWin or Keys.RWin or Keys.None)
+        {
+            return;
+        }
+
+        HotkeyModifiers modifiers = HotkeyModifiers.None;
+        if (e.Control)
+        {
+            modifiers |= HotkeyModifiers.Control;
+        }
+
+        if (e.Alt)
+        {
+            modifiers |= HotkeyModifiers.Alt;
+        }
+
+        if (e.Shift)
+        {
+            modifiers |= HotkeyModifiers.Shift;
+        }
+
+        if (modifiers == HotkeyModifiers.None)
+        {
+            _hotkeyStatus.ForeColor = Palette.Danger;
+            _hotkeyStatus.Text = "Include Ctrl, Alt, or Shift.";
+            return;
+        }
+
+        box.Text = new HotkeyGesture(modifiers, e.KeyCode).ToString();
+        _hotkeyStatus.ForeColor = Palette.TextMuted;
+        _hotkeyStatus.Text = "Press Apply hotkeys to confirm.";
+    }
+
     private void SaveAndNotifySchedule()
     {
         SettingsService.Save();
@@ -502,7 +693,8 @@ internal sealed class SettingsForm : Form
     {
         AppSettings settings = SettingsService.Current;
 
-        if (settings.ScheduleLightTime == settings.ScheduleDarkTime)
+        if (settings.ScheduleMode == ScheduleMode.FixedTimes &&
+            settings.ScheduleLightTime == settings.ScheduleDarkTime)
         {
             _scheduleStatus.ForeColor = Palette.Danger;
             _scheduleStatus.Text = "Light and dark times must differ.";

@@ -13,6 +13,8 @@ internal sealed class TrayController : IDisposable
     private readonly ToolStripMenuItem _flyoutThemeItem;
     private readonly Dictionary<FlyoutThemeMode, ToolStripMenuItem> _flyoutThemeItems = new();
     private readonly ToolStripMenuItem _pauseScheduleItem;
+    private readonly ToolStripMenuItem _openItem;
+    private readonly ToolStripMenuItem _toggleDarkItem;
     private readonly ToolStripMenuItem _updateItem;
     private bool _disposed;
 
@@ -31,10 +33,13 @@ internal sealed class TrayController : IDisposable
             Font = new Font("Segoe UI", 9F, FontStyle.Bold),
             ShortcutKeyDisplayString = "Ctrl+Alt+Q",
         };
+        _openItem = openItem;
+
         var toggleDarkItem = new ToolStripMenuItem("Toggle dark mode", null, (_, _) => ToggleDarkRequested?.Invoke())
         {
             ShortcutKeyDisplayString = "Ctrl+Alt+D",
         };
+        _toggleDarkItem = toggleDarkItem;
         var toggleAppsItem = new ToolStripMenuItem("Toggle app theme", null, (_, _) => ToggleAppsRequested?.Invoke());
         var toggleSystemItem = new ToolStripMenuItem("Toggle system theme", null, (_, _) => ToggleSystemRequested?.Invoke());
         var toggleTransparencyItem = new ToolStripMenuItem("Toggle transparency", null, (_, _) => ToggleTransparencyRequested?.Invoke());
@@ -154,6 +159,8 @@ internal sealed class TrayController : IDisposable
         AppSettings settings = SettingsService.Current;
         _pauseScheduleItem.Enabled = settings.ScheduleEnabled;
         _pauseScheduleItem.Text = settings.SchedulePaused ? "Resume schedule" : "Pause schedule";
+        _openItem.ShortcutKeyDisplayString = settings.HotkeyOpenPanel;
+        _toggleDarkItem.ShortcutKeyDisplayString = settings.HotkeyToggleDark;
     }
 
     public void SetUpdateItem(string text, bool enabled)

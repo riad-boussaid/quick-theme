@@ -2,6 +2,20 @@
 
 All notable changes to Quick Theme are documented here.
 
+## [1.4.0] - 2026-11-09
+
+### Added
+
+- Sunrise/sunset scheduling using configurable latitude and longitude
+- Configurable global hotkeys with capture and conflict feedback
+- Hotkey shortcuts update in the tray menu when changed
+- Tests for solar calculations and hotkey gesture parsing; the suite is now 39 tests
+
+### Changed
+
+- Fixed times remain the fallback when sunrise or sunset is unavailable
+- Settings now include schedule mode, coordinates, and hotkey bindings
+
 ## [1.3.0] - 2026-11-09
 
 ### Added

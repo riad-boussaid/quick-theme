@@ -50,11 +50,6 @@ internal static class ScheduleCalculator
         DateTime startDate,
         DateTime endDate)
     {
-        if (settings.ScheduleLightTime == settings.ScheduleDarkTime)
-        {
-            yield break;
-        }
-
         for (DateTime date = startDate.Date; date <= endDate.Date; date = date.AddDays(1))
         {
             if (!IsActiveDay(settings.ScheduleDays, date))
@@ -62,8 +57,60 @@ internal static class ScheduleCalculator
                 continue;
             }
 
-            yield return new ScheduleTransition(date + settings.ScheduleLightTime.ToTimeSpan(), Dark: false);
-            yield return new ScheduleTransition(date + settings.ScheduleDarkTime.ToTimeSpan(), Dark: true);
+            (DateTime light, DateTime dark) = GetTransitionTimes(settings, date);
+            if (light == dark)
+            {
+                continue;
+            }
+
+            yield return new ScheduleTransition(light, Dark: false);
+            yield return new ScheduleTransition(dark, Dark: true);
+        }
+    }
+
+    private static (DateTime Light, DateTime Dark) GetTransitionTimes(AppSettings settings, DateTime date)
+    {
+        if (settings.ScheduleMode == ScheduleMode.SunriseSunset &&
+            TryGetSolarTimes(settings, date, out DateTime sunrise, out DateTime sunset))
+        {
+            return (sunrise, sunset);
+        }
+
+        return (
+            date + settings.ScheduleLightTime.ToTimeSpan(),
+            date + settings.ScheduleDarkTime.ToTimeSpan());
+    }
+
+    private static bool TryGetSolarTimes(
+        AppSettings settings,
+        DateTime date,
+        out DateTime sunrise,
+        out DateTime sunset)
+    {
+        sunrise = default;
+        sunset = default;
+
+        try
+        {
+            DateTime localNoon = date.Date.AddHours(12);
+            DateTime utcNoon = TimeZoneInfo.ConvertTimeToUtc(localNoon, TimeZoneInfo.Local);
+            SunTimes times = SolarCalculator.GetSunTimesUtc(
+                utcNoon,
+                settings.ScheduleLatitude,
+                settings.ScheduleLongitude);
+
+            if (times.SunriseUtc is null || times.SunsetUtc is null)
+            {
+                return false;
+            }
+
+            sunrise = TimeZoneInfo.ConvertTimeFromUtc(times.SunriseUtc.Value, TimeZoneInfo.Local);
+            sunset = TimeZoneInfo.ConvertTimeFromUtc(times.SunsetUtc.Value, TimeZoneInfo.Local);
+            return true;
+        }
+        catch (ArgumentException)
+        {
+            return false;
         }
     }
 }
