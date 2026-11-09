@@ -18,4 +18,23 @@ public sealed class UpdateServiceTests
 
         Assert.Equal(expected, result);
     }
+
+    [Theory]
+    [InlineData("1.5.1", "1.5.1.0", true)]
+    [InlineData("1.5.1.0", "1.5.1", true)]
+    [InlineData("1.5.1", "1.5.1", true)]
+    [InlineData("1.5.1", "1.5.0", false)]
+    [InlineData("1.5.1", "1.5.2", false)]
+    [InlineData("1.5.1", "2.0.0", false)]
+    [InlineData("1.5.1", null, false)]
+    [InlineData("1.5.1", "", false)]
+    [InlineData("1.5.1", "not-a-version", false)]
+    [InlineData("not-a-version", "1.5.1", false)]
+    [InlineData("", "1.5.1", false)]
+    public void VersionsMatch_ComparesNormalizedVersions(string expected, string? actual, bool shouldMatch)
+    {
+        bool result = UpdateService.VersionsMatch(expected, actual);
+
+        Assert.Equal(shouldMatch, result);
+    }
 }

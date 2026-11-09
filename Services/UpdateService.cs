@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Net.Http;
 using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using QuickTheme.Models;
 
@@ -131,6 +132,8 @@ internal static class UpdateService
                 throw new InvalidDataException("The downloaded update failed its integrity check.");
             }
 
+            VerifyFileVersion(destination, manifest.Version);
+
             long size = new FileInfo(destination).Length;
             progress?.Report(new UpdateDownloadProgress(size, size));
             return destination;
@@ -166,24 +169,99 @@ $ErrorActionPreference = 'Stop'
 $target = '{{EscapeForPowerShell(target)}}'
 $source = '{{EscapeForPowerShell(downloadedPath)}}'
 $processId = {{Environment.ProcessId}}
+$backup = "$target.bak"
+$targetDirectory = [System.IO.Path]::GetDirectoryName($target)
+$logDirectory = Join-Path $env:LOCALAPPDATA 'Quick Theme'
+$logPath = Join-Path $logDirectory 'updater.log'
+New-Item -ItemType Directory -Path $logDirectory -Force | Out-Null
+
+function Write-Log([string]$message) {
+    Add-Content -LiteralPath $logPath -Value "$(Get-Date -Format o) $message"
+}
+
 try {
+    Write-Log "Waiting for process $processId to exit"
     while (Get-Process -Id $processId -ErrorAction SilentlyContinue) {
         Start-Sleep -Milliseconds 400
     }
     Start-Sleep -Milliseconds 300
-    Copy-Item -LiteralPath $source -Destination $target -Force
-    Start-Process -FilePath $target
-    Remove-Item -LiteralPath $source -Force -ErrorAction SilentlyContinue
+
+    Write-Log "Creating backup at $backup"
+    Copy-Item -LiteralPath $target -Destination $backup -Force
+
+    $sourceHash = (Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash
+    $copied = $false
+    for ($attempt = 1; $attempt -le 5; $attempt++) {
+        try {
+            Copy-Item -LiteralPath $source -Destination $target -Force
+            $copied = $true
+            break
+        }
+        catch {
+            Write-Log "Copy attempt $attempt failed: $($_.Exception.Message)"
+            Start-Sleep -Milliseconds 500
+        }
+    }
+
+    if (-not $copied) {
+        throw "Could not replace the executable."
+    }
+
+    $targetHash = (Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash
+    if ($sourceHash -ne $targetHash) {
+        throw "Hash mismatch after replacing the executable."
+    }
+
+    Write-Log "Copy verified; starting updated application"
+    $newProcess = Start-Process -FilePath $target -WorkingDirectory $targetDirectory -PassThru
+    Start-Sleep -Seconds 2
+    $newProcess.Refresh()
+    if ($newProcess.HasExited) {
+        throw "The updated application exited immediately with code $($newProcess.ExitCode)."
+    }
+
+    Write-Log "Update succeeded; backup retained at $backup"
 }
 catch {
-    Start-Process -FilePath $target
+    Write-Log "Update failed: $($_.Exception.Message)"
+    if (Test-Path -LiteralPath $backup) {
+        $restored = $false
+        for ($attempt = 1; $attempt -le 5; $attempt++) {
+            try {
+                Copy-Item -LiteralPath $backup -Destination $target -Force
+                $restored = $true
+                break
+            }
+            catch {
+                Write-Log "Rollback attempt $attempt failed: $($_.Exception.Message)"
+                Start-Sleep -Milliseconds 500
+            }
+        }
+
+        if ($restored) {
+            Write-Log "Rolled back to the previous executable."
+        }
+        else {
+            Write-Log "Rollback failed after 5 attempts."
+        }
+    }
+
+    try {
+        Start-Process -FilePath $target -WorkingDirectory $targetDirectory
+    }
+    catch {
+        Write-Log "Could not restart the previous executable: $($_.Exception.Message)"
+    }
 }
 finally {
+    Remove-Item -LiteralPath $source -Force -ErrorAction SilentlyContinue
     Remove-Item -LiteralPath $MyInvocation.MyCommand.Path -Force -ErrorAction SilentlyContinue
 }
 """;
 
-        File.WriteAllText(scriptPath, script);
+        // Windows PowerShell 5.1 reads BOM-less scripts using the ANSI code page,
+        // which would corrupt non-ASCII install paths.
+        File.WriteAllText(scriptPath, script, new UTF8Encoding(encoderShouldEmitUTF8Identifier: true));
 
         var startInfo = new ProcessStartInfo(
             "powershell.exe",
@@ -193,6 +271,10 @@ finally {
             CreateNoWindow = true,
             WindowStyle = ProcessWindowStyle.Hidden,
         };
+
+        // Windows PowerShell can fail to autoload its modules when launched from
+        // PowerShell 7, which prepends its own module paths to PSModulePath.
+        startInfo.Environment.Remove("PSModulePath");
 
         Process.Start(startInfo);
     }
@@ -303,6 +385,37 @@ finally {
 
     internal static bool IsNewerVersion(string candidate, Version currentVersion) =>
         TryParseVersion(candidate, out Version parsed) && parsed > Normalize(currentVersion);
+
+    internal static bool VersionsMatch(string expectedVersion, string? actualVersion)
+    {
+        if (!Version.TryParse(expectedVersion, out Version? expected) ||
+            !Version.TryParse(actualVersion, out Version? actual))
+        {
+            return false;
+        }
+
+        return Normalize(expected) == Normalize(actual);
+    }
+
+    private static void VerifyFileVersion(string path, string expectedVersion)
+    {
+        string? actualVersion;
+
+        try
+        {
+            actualVersion = FileVersionInfo.GetVersionInfo(path).FileVersion;
+        }
+        catch (Exception ex) when (ex is ArgumentException or IOException)
+        {
+            throw new InvalidDataException("The downloaded update is not a valid executable.", ex);
+        }
+
+        if (!VersionsMatch(expectedVersion, actualVersion))
+        {
+            throw new InvalidDataException(
+                $"The downloaded update reports version {actualVersion ?? "unknown"}, expected {expectedVersion}.");
+        }
+    }
 
     private static Version Normalize(Version version) =>
         new(version.Major, version.Minor, Math.Max(version.Build, 0), Math.Max(version.Revision, 0));

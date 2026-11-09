@@ -108,7 +108,7 @@ This creates:
 Useful options:
 
 ```powershell
-.\publish.ps1 -Version 1.5.0
+.\publish.ps1 -Version 1.5.1
 .\publish.ps1 -FeedUrl "https://example.com/quick-theme/update.json"
 .\publish.ps1 -UpdateUrl "https://example.com/quick-theme/quick-theme.exe"
 .\publish.ps1 -SkipInstaller
@@ -229,7 +229,7 @@ The app checks an update manifest like this:
 
 ```json
 {
-  "version": "1.5.0",
+  "version": "1.5.1",
   "url": "quick-theme.exe",
   "sha256": "lowercase-sha256-of-the-exe",
   "notes": "What changed in this version"
@@ -242,10 +242,12 @@ variable, or an update feed embedded at publish time with `publish.ps1 -FeedUrl 
 When an update is available:
 
 1. The tray menu changes to **Update to x.y.z...**
-2. The app downloads the new executable to `%TEMP%\Quick Theme`
-3. The SHA-256 hash is verified
-4. A small hidden PowerShell script waits for the app to exit, replaces the executable,
-   and restarts it
+2. The app downloads the new executable to `%TEMP%\QuickTheme`
+3. The SHA-256 hash and embedded file version are verified against the manifest
+4. A hidden PowerShell script waits for the app to exit, backs up the current executable
+   to `quick-theme.exe.bak`, replaces it, verifies the copy, and restarts it
+5. If the replacement or restart fails, the previous executable is restored and the
+   failure is logged to `%LOCALAPPDATA%\Quick Theme\updater.log`
 
 The app folder must be writable by the current user. The included installer installs
 under `%LOCALAPPDATA%\Programs\Quick Theme` for this reason.
