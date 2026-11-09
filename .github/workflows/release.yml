@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: write
+  actions: write
 
 jobs:
   build:
@@ -72,3 +73,11 @@ jobs:
             artifacts/update.json
             artifacts/quick-theme-*-win-x64.zip
             artifacts/quick-theme-*-setup.exe
+
+      - name: Trigger Winget submission
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ github.ref_name }}
+        run: gh workflow run winget.yml --ref main -f version=$env:VERSION

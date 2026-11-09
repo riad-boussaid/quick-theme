@@ -54,9 +54,11 @@ For v1.5.0 you can either:
   wingetcreate submit .\winget\manifests\r\RiadBoussaid\QuickTheme\1.5.0 --token <token>
   ```
 
-After v1.5.0 is merged, `.github/workflows/winget.yml` automatically submits
-future releases when a `v*` release is published, provided the `WINGET_TOKEN`
-repository secret is configured.
+After v1.5.0 is merged, the release workflow dispatches
+`.github/workflows/winget.yml` for future `v*` releases, provided the
+`WINGET_TOKEN` repository secret is configured. The explicit dispatch is needed
+because GitHub does not run workflows from `release` events created with the
+repository's own `GITHUB_TOKEN`.
 
 Create a classic personal access token with the `public_repo` and `workflow`
 scopes and add it as a repository secret named `WINGET_TOKEN`. The token must be
