@@ -36,7 +36,7 @@ Package the app:
 | `Services/` | Theme registry, settings, startup, Explorer, notifications, updates |
 | `Models/` | Settings and update models |
 | `UI/` | Flyout and update dialogs, palette, menu renderer, drawing helpers |
-| `UI/Controls/` | Custom toggle, row, close-button, and progress-bar controls |
+| `UI/Controls/` | Custom toggle, row, link, close-button, and progress-bar controls |
 | `installer/` | Inno Setup script |
 | `winget/` | Winget manifests and manifest generator |
 | `tests/QuickTheme.Tests/` | Unit tests |
@@ -50,8 +50,9 @@ Package the app:
 ```
 
 The test project covers settings serialization, update version comparison, CLI
-argument parsing, schedule calculation, solar times, and hotkey gestures. UI behavior
-is still verified manually.
+argument parsing, schedule calculation, solar times, hotkey gestures, and a WinForms
+smoke test for the settings and flyout windows. Visual behavior is still verified
+manually.
 
 ## Pull requests
 
@@ -60,6 +61,8 @@ is still verified manually.
 - Do not commit `bin/`, `obj/`, `artifacts/`, `.vs/`, or `*.user` files.
 - Update `README.md` and `CHANGELOG.md` when behavior changes.
 - Mention what you tested, including Windows version and display scaling if relevant.
+- Pull requests must pass the **Build and Release** workflow and **CodeQL** analysis.
+  Both checks are required on `main`.
 
 ## Licensing
 

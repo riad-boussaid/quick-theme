@@ -95,11 +95,14 @@ internal sealed class SlimProgressBar : Control
         float height = Height;
         var track = new RectangleF(0f, 0f, Width, height);
 
+        Color trackColor = Palette.IsHighContrast
+            ? Palette.TrackOff
+            : Palette.IsLight
+                ? Color.FromArgb(224, 224, 232)
+                : Color.FromArgb(52, 52, 62);
+
         using (var trackPath = Ui.RoundedRect(track, height / 2f))
-        using (var trackBrush = new SolidBrush(
-                   Palette.IsLight
-                       ? Color.FromArgb(224, 224, 232)
-                       : Color.FromArgb(52, 52, 62)))
+        using (var trackBrush = new SolidBrush(trackColor))
         {
             g.FillPath(trackBrush, trackPath);
         }

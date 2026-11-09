@@ -53,6 +53,7 @@ See [`winget/README.md`](winget/README.md) for submission details and automation
 - Single instance: launching it again just reopens the flyout
 - CLI switches for scripts and shortcuts
 - Built-in update check and self-update
+- Keyboard-friendly controls, screen-reader labels, and high-contrast support
 - Windows 10/11, per-monitor DPI aware
 
 ## Requirements
@@ -109,7 +110,7 @@ This creates:
 Useful options:
 
 ```powershell
-.\publish.ps1 -Version 1.6.0
+.\publish.ps1 -Version 1.6.1
 .\publish.ps1 -FeedUrl "https://example.com/quick-theme/update.json"
 .\publish.ps1 -UpdateUrl "https://example.com/quick-theme/quick-theme.exe"
 .\publish.ps1 -SkipInstaller
@@ -241,7 +242,7 @@ The app checks an update manifest like this:
 
 ```json
 {
-  "version": "1.6.0",
+  "version": "1.6.1",
   "url": "quick-theme.exe",
   "sha256": "lowercase-sha256-of-the-exe",
   "notes": "What changed in this version"

@@ -14,10 +14,10 @@ internal sealed class ThemeFlyoutForm : Form
     private readonly ThemeRow _appsRow;
     private readonly ThemeRow _systemRow;
     private readonly ThemeRow _transparencyRow;
-    private readonly Label _scheduleStatus;
-    private readonly Label _restartLink;
-    private readonly Label _settingsLink;
-    private readonly Label _quitLink;
+    private readonly LinkButton _scheduleStatus;
+    private readonly LinkButton _restartLink;
+    private readonly LinkButton _settingsLink;
+    private readonly LinkButton _quitLink;
     private readonly CloseButton _closeButton;
     private readonly PictureBox _logo;
     private readonly Label _title;
@@ -25,7 +25,6 @@ internal sealed class ThemeFlyoutForm : Form
     private bool _refreshing;
     private bool _suppressDeactivateHide;
     private bool _systemRefreshQueued;
-    private bool _scheduleStatusActionable;
 
     public event EventHandler? SystemThemeChanged;
 
@@ -44,6 +43,8 @@ internal sealed class ThemeFlyoutForm : Form
 
         Icon = Properties.Resources.themes_256_black;
         Text = "Quick Theme";
+        AccessibleName = "Quick Theme";
+        AccessibleDescription = "Quick theme controls and appearance status.";
         FormBorderStyle = FormBorderStyle.None;
         StartPosition = FormStartPosition.Manual;
         ShowInTaskbar = false;
@@ -111,46 +112,34 @@ internal sealed class ThemeFlyoutForm : Form
         _systemRow.CheckedChanged += OnRowCheckedChanged;
         _transparencyRow.CheckedChanged += OnRowCheckedChanged;
 
-        _scheduleStatus = new Label
+        _scheduleStatus = new LinkButton(string.Empty)
         {
-            AutoSize = false,
-            BackColor = Color.Transparent,
-            ForeColor = Palette.TextMuted,
-            Font = new Font("Segoe UI", 8.25F),
             Bounds = new Rectangle(14, 242, ClientSize.Width - 28, 18),
             TextAlign = ContentAlignment.MiddleLeft,
-            UseMnemonic = false,
+            AccessibleName = "Schedule status",
         };
-        _scheduleStatus.Click += (_, _) =>
-        {
-            if (_scheduleStatusActionable)
-            {
-                ResumeScheduleRequested?.Invoke();
-            }
-        };
-        _scheduleStatus.MouseEnter += (_, _) =>
-        {
-            if (_scheduleStatusActionable)
-            {
-                _scheduleStatus.ForeColor = Palette.Accent;
-            }
-        };
-        _scheduleStatus.MouseLeave += (_, _) => _scheduleStatus.ForeColor = Palette.TextMuted;
+        _scheduleStatus.Click += (_, _) => ResumeScheduleRequested?.Invoke();
 
-        _restartLink = CreateLink("Restart Explorer");
-        _restartLink.Bounds = new Rectangle(82, 272, 140, 24);
-        _restartLink.TextAlign = ContentAlignment.MiddleLeft;
+        _restartLink = new LinkButton("Restart Explorer")
+        {
+            Bounds = new Rectangle(82, 272, 140, 24),
+            TextAlign = ContentAlignment.MiddleLeft,
+        };
         _restartLink.Click += OnRestartExplorerClick;
 
-        _settingsLink = CreateLink("Settings");
-        _settingsLink.Bounds = new Rectangle(14, 272, 60, 24);
-        _settingsLink.TextAlign = ContentAlignment.MiddleLeft;
+        _settingsLink = new LinkButton("Settings")
+        {
+            Bounds = new Rectangle(14, 272, 60, 24),
+            TextAlign = ContentAlignment.MiddleLeft,
+        };
         _settingsLink.Click += (_, _) => SettingsRequested?.Invoke();
 
-        _quitLink = CreateLink("Quit", danger: true);
-        _quitLink.Bounds = new Rectangle(ClientSize.Width - 14 - 60, 272, 60, 24);
-        _quitLink.TextAlign = ContentAlignment.MiddleRight;
-        _quitLink.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+        _quitLink = new LinkButton("Quit", danger: true)
+        {
+            Bounds = new Rectangle(ClientSize.Width - 14 - 60, 272, 60, 24),
+            TextAlign = ContentAlignment.MiddleRight,
+            Anchor = AnchorStyles.Top | AnchorStyles.Right,
+        };
         _quitLink.Click += (_, _) => Application.Exit();
 
         Controls.AddRange(
@@ -353,25 +342,6 @@ internal sealed class ThemeFlyoutForm : Form
         }
     }
 
-    private static Label CreateLink(string text, bool danger = false)
-    {
-        var link = new Label
-        {
-            Text = text,
-            AutoSize = false,
-            BackColor = Color.Transparent,
-            ForeColor = Palette.TextMuted,
-            Font = new Font("Segoe UI", 8.5F),
-            Cursor = Cursors.Hand,
-            UseMnemonic = false,
-        };
-
-        link.MouseEnter += (_, _) => link.ForeColor = danger ? Palette.Danger : Palette.Accent;
-        link.MouseLeave += (_, _) => link.ForeColor = Palette.TextMuted;
-
-        return link;
-    }
-
     private void ApplyPalette()
     {
         Palette.Apply(SettingsService.Current.FlyoutTheme, ThemeService.SystemUsesDarkTheme);
@@ -379,10 +349,6 @@ internal sealed class ThemeFlyoutForm : Form
         BackColor = Palette.SurfaceBottom;
         _title.ForeColor = Palette.Text;
         _subtitle.ForeColor = Palette.TextMuted;
-        _scheduleStatus.ForeColor = Palette.TextMuted;
-        _settingsLink.ForeColor = Palette.TextMuted;
-        _restartLink.ForeColor = Palette.TextMuted;
-        _quitLink.ForeColor = Palette.TextMuted;
         _logo.Image = Palette.IsLight
             ? Properties.Resources.themes_black
             : Properties.Resources.themes_white;
@@ -457,30 +423,35 @@ internal sealed class ThemeFlyoutForm : Form
         AppSettings settings = SettingsService.Current;
         string? overrideText = ScheduleOverrideService.Describe(settings, DateTimeOffset.Now);
         bool paused = settings.ScheduleEnabled && settings.SchedulePaused;
-        _scheduleStatusActionable = overrideText is not null || paused;
+        bool actionable = overrideText is not null || paused;
 
+        string statusText;
         if (overrideText is not null)
         {
-            _scheduleStatus.Text = $"{overrideText}  ·  click to resume";
+            statusText = overrideText;
         }
         else if (!settings.ScheduleEnabled)
         {
-            _scheduleStatus.Text = "Schedule is off";
+            statusText = "Schedule is off";
         }
         else if (paused)
         {
-            _scheduleStatus.Text = "Schedule is paused  ·  click to resume";
+            statusText = "Schedule is paused";
         }
         else
         {
             ScheduleTransition? next = ScheduleCalculator.GetNextTransition(settings, DateTime.Now);
-            _scheduleStatus.Text = next is null
+            statusText = next is null
                 ? "No upcoming switch"
                 : $"Next switch: {next.Value.At:ddd HH:mm} → {(next.Value.Dark ? "Dark" : "Light")}";
         }
 
-        _scheduleStatus.ForeColor = Palette.TextMuted;
-        _scheduleStatus.Cursor = _scheduleStatusActionable ? Cursors.Hand : Cursors.Default;
+        _scheduleStatus.Actionable = actionable;
+        _scheduleStatus.Text = actionable ? $"{statusText}  ·  click to resume" : statusText;
+        _scheduleStatus.AccessibleDescription = actionable
+            ? $"{statusText}. Press Enter to resume."
+            : statusText;
+        _scheduleStatus.AccessibleDefaultActionDescription = actionable ? "Resume schedule" : null;
     }
 
     private void PositionNearTray()

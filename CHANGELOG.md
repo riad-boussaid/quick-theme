@@ -4,6 +4,19 @@ All notable changes to Quick Theme are documented here.
 
 ## [Unreleased]
 
+## [1.6.1] - 2026-11-09
+
+### Added
+
+- CodeQL code scanning and a WinForms smoke test for the settings and flyout windows
+- Keyboard-accessible flyout footer links and schedule status
+- Basic high-contrast palette support
+- Required CI checks for the main branch
+
+### Changed
+
+- Improved screen-reader labels and keyboard navigation in the settings window
+
 ## [1.6.0] - 2026-11-09
 
 ### Added
