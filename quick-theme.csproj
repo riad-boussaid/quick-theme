@@ -1,0 +1,49 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <RootNamespace>quick_theme</RootNamespace>
+    <AssemblyName>quick-theme</AssemblyName>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWindowsForms>true</UseWindowsForms>
+    <PlatformTarget>x64</PlatformTarget>
+    <ApplicationIcon>icons\themes-256-black.ico</ApplicationIcon>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+    <ApplicationDefaultFont>Segoe UI, 9pt</ApplicationDefaultFont>
+    <ApplicationVisualStyles>true</ApplicationVisualStyles>
+    <ApplicationUseCompatibleTextRendering>false</ApplicationUseCompatibleTextRendering>
+    <Version>1.2.0</Version>
+    <Product>Quick Theme</Product>
+    <AssemblyTitle>Quick Theme</AssemblyTitle>
+    <Company>Quick Theme</Company>
+    <Authors>Quick Theme</Authors>
+    <Description>A small tray utility for switching Windows light and dark appearance.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="icons\themes-256-black.ico" />
+    <Content Include="icons\themes-32.ico" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(UpdateFeedUrl)' != ''">
+    <AssemblyMetadata Include="UpdateFeedUrl" Value="$(UpdateFeedUrl)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Update="Properties\Resources.Designer.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Resources.resx</DependentUpon>
+    </Compile>
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Update="Properties\Resources.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+  </ItemGroup>
+
+</Project>
