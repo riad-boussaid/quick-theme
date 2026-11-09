@@ -4,11 +4,23 @@ All notable changes to Quick Theme are documented here.
 
 ## [Unreleased]
 
+## [1.5.1] - 2026-11-09
+
 ### Added
 
 - Winget manifest for `RiadBoussaid.QuickTheme`
 - Winget manifest generator and submission workflow
 - Dependabot configuration for GitHub Actions
+
+### Changed
+
+- Self-updates now verify the downloaded executable's version before applying it
+- The updater backs up the current executable, verifies the replacement copy, and rolls back on failure
+- Update failures are logged to `%LOCALAPPDATA%\Quick Theme\updater.log`
+
+### Fixed
+
+- The updater no longer leaves the app closed when the replacement executable fails to start
 
 ## [1.5.0] - 2026-11-09
 
