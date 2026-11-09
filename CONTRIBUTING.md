@@ -49,7 +49,8 @@ Package the app:
 ```
 
 The test project covers settings serialization, update version comparison, CLI
-argument parsing, and schedule calculation. UI behavior is still verified manually.
+argument parsing, schedule calculation, solar times, and hotkey gestures. UI behavior
+is still verified manually.
 
 ## Pull requests
 

@@ -27,11 +27,12 @@ Published builds are self-contained and do not require the .NET runtime.
 - Dark **or light** flyout theme, or follow Windows automatically
 - Toggle **apps** and **system** light/dark mode
 - Toggle Windows **transparency**
-- Daily **light/dark schedule** with pause and weekday/weekend rules
-- Settings window for schedule, startup, updates, and about
+- Daily **light/dark schedule** with fixed times or sunrise/sunset
+- Schedule pause, weekday/weekend rules, and configurable location
+- Settings window for schedule, hotkeys, startup, updates, and about
 - Presets: all dark, all light, or apps follow system
 - Quick toggles in the tray menu, plus middle-click for a full dark/light switch
-- Global hotkeys: `Ctrl+Alt+D` toggles dark mode, `Ctrl+Alt+Q` opens the flyout
+- Configurable global hotkeys (defaults: `Ctrl+Alt+D` and `Ctrl+Alt+Q`)
 - Live refresh when the theme is changed from Windows Settings or another tool
 - Uses your Windows accent color
 - Tray icon automatically switches between light and dark variants
@@ -96,7 +97,7 @@ This creates:
 Useful options:
 
 ```powershell
-.\publish.ps1 -Version 1.3.0
+.\publish.ps1 -Version 1.4.0
 .\publish.ps1 -FeedUrl "https://example.com/quick-theme/update.json"
 .\publish.ps1 -UpdateUrl "https://example.com/quick-theme/quick-theme.exe"
 .\publish.ps1 -SkipInstaller
@@ -115,16 +116,18 @@ Run `quick-theme.exe`. It lives in the notification area:
   updates, About, Start with Windows, and Quit.
 - `Ctrl+Alt+D` toggles dark mode from anywhere.
 - `Ctrl+Alt+Q` opens the flyout from anywhere.
+- Hotkeys are configurable in **Settings → Hotkeys**.
 - The flyout closes when it loses focus or when `Esc` is pressed.
 
 ### Schedule
 
 Open **Settings** from the flyout footer or the tray menu. The schedule supports:
 
-- Separate light and dark times
+- Fixed times, or local sunrise/sunset using latitude and longitude
 - Applying to apps + system, apps only, or system only
 - Every day, weekdays, or weekends
 - Pausing and resuming without losing the configured times
+- Fixed times as a fallback when the sun does not rise or set (polar day/night)
 
 The schedule is applied on startup, after sleep/resume or clock changes, and at each
 transition. Manual theme changes stay in effect until the next scheduled transition.
@@ -173,10 +176,15 @@ Example:
   "LastUpdateCheckUtc": "2026-11-09T13:00:00+00:00",
   "ScheduleEnabled": false,
   "SchedulePaused": false,
+  "ScheduleMode": "FixedTimes",
   "ScheduleLightTime": "07:00:00",
   "ScheduleDarkTime": "19:00:00",
+  "ScheduleLatitude": 51.5074,
+  "ScheduleLongitude": -0.1278,
   "ScheduleScope": "Both",
-  "ScheduleDays": "EveryDay"
+  "ScheduleDays": "EveryDay",
+  "HotkeyToggleDark": "Ctrl+Alt+D",
+  "HotkeyOpenPanel": "Ctrl+Alt+Q"
 }
 ```
 
@@ -188,10 +196,15 @@ Example:
 | `LastUpdateCheckUtc` | Maintained by the app |
 | `ScheduleEnabled` | Turn the daily schedule on or off |
 | `SchedulePaused` | Temporarily suspend scheduled switching |
-| `ScheduleLightTime` | Local time for the light theme |
-| `ScheduleDarkTime` | Local time for the dark theme |
+| `ScheduleMode` | `FixedTimes` or `SunriseSunset` |
+| `ScheduleLightTime` | Local time for the light theme (fixed mode) |
+| `ScheduleDarkTime` | Local time for the dark theme (fixed mode) |
+| `ScheduleLatitude` | Latitude for sunrise/sunset calculation |
+| `ScheduleLongitude` | Longitude for sunrise/sunset calculation |
 | `ScheduleScope` | `Both`, `Apps`, or `System` |
 | `ScheduleDays` | `EveryDay`, `Weekdays`, or `Weekends` |
+| `HotkeyToggleDark` | Shortcut for toggling dark mode |
+| `HotkeyOpenPanel` | Shortcut for opening the flyout |
 
 You can override the update feed for a session with an environment variable:
 
@@ -205,7 +218,7 @@ The app checks an update manifest like this:
 
 ```json
 {
-  "version": "1.3.0",
+  "version": "1.4.0",
   "url": "quick-theme.exe",
   "sha256": "lowercase-sha256-of-the-exe",
   "notes": "What changed in this version"

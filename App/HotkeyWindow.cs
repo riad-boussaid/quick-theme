@@ -34,6 +34,12 @@ internal sealed class HotkeyWindow : NativeWindow, IDisposable
         return true;
     }
 
+    public void Unregister(int id)
+    {
+        UnregisterHotKey(Handle, id);
+        _registered.Remove(id);
+    }
+
     public void Dispose()
     {
         foreach (int id in _registered)

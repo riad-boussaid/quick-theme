@@ -25,7 +25,27 @@ internal sealed class QuickThemeApplicationContext : ApplicationContext
         _themes = new ThemeController(_form, _tray);
         _updates = new UpdateCoordinator(_form, _tray);
         _schedule = new ScheduleController(_themes);
-        _hotkeys = new Hotkeys();
+        _hotkeys = new Hotkeys(
+            SettingsService.Current.HotkeyToggleDark,
+            SettingsService.Current.HotkeyOpenPanel);
+
+        if ((!string.IsNullOrEmpty(_hotkeys.ToggleGestureText) &&
+             SettingsService.Current.HotkeyToggleDark != _hotkeys.ToggleGestureText) ||
+            (!string.IsNullOrEmpty(_hotkeys.OpenGestureText) &&
+             SettingsService.Current.HotkeyOpenPanel != _hotkeys.OpenGestureText))
+        {
+            if (!string.IsNullOrEmpty(_hotkeys.ToggleGestureText))
+            {
+                SettingsService.Current.HotkeyToggleDark = _hotkeys.ToggleGestureText;
+            }
+
+            if (!string.IsNullOrEmpty(_hotkeys.OpenGestureText))
+            {
+                SettingsService.Current.HotkeyOpenPanel = _hotkeys.OpenGestureText;
+            }
+
+            SettingsService.Save();
+        }
 
         _form.VisibleChanged += OnFormVisibleChanged;
         _form.SettingsRequested += ShowSettings;
@@ -150,13 +170,30 @@ internal sealed class QuickThemeApplicationContext : ApplicationContext
             return;
         }
 
-        _settingsForm = new SettingsForm(OnScheduleSettingsChanged, _updates.RequestCheck);
+        _settingsForm = new SettingsForm(
+            OnScheduleSettingsChanged,
+            _updates.RequestCheck,
+            ApplyHotkeys);
         _settingsForm.FormClosed += (_, _) =>
         {
             _settingsForm = null;
             _tray.RefreshMenuState();
         };
         _settingsForm.Show();
+    }
+
+    private string? ApplyHotkeys(string toggle, string open)
+    {
+        if (!_hotkeys.TryUpdate(toggle, open, out string? error))
+        {
+            return error;
+        }
+
+        SettingsService.Current.HotkeyToggleDark = _hotkeys.ToggleGestureText;
+        SettingsService.Current.HotkeyOpenPanel = _hotkeys.OpenGestureText;
+        SettingsService.Save();
+        _tray.RefreshMenuState();
+        return null;
     }
 
     private void OnScheduleSettingsChanged()
