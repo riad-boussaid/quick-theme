@@ -2,7 +2,16 @@
 
 All notable changes to Quick Theme are documented here.
 
-## [Unreleased]
+## [1.3.0] - 2026-11-09
+
+### Added
+
+- Daily light/dark schedule with configurable times, scope, and day selection
+- Schedule pause/resume from settings and the tray menu
+- Settings window for schedule, startup, update feed, and about
+- Theme presets: all dark, all light, and apps follow system
+- Settings link in the flyout footer
+- Schedule calculation tests, bringing the suite to 27 tests
 
 ### Changed
 
@@ -10,7 +19,7 @@ All notable changes to Quick Theme are documented here.
 - Split the application context, tray menu, theme actions, update flow, CLI, and
   single-instance handling into focused classes
 - Renamed the namespace to `QuickTheme` and the flyout to `ThemeFlyoutForm`
-- Added unit tests for settings, version comparison, and CLI parsing
+- Added unit tests for settings, version comparison, CLI parsing, and scheduling
 
 ## [1.2.1] - 2026-11-09
 

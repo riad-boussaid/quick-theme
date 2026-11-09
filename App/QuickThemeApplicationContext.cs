@@ -9,8 +9,10 @@ internal sealed class QuickThemeApplicationContext : ApplicationContext
     private readonly TrayController _tray;
     private readonly ThemeController _themes;
     private readonly UpdateCoordinator _updates;
+    private readonly ScheduleController _schedule;
     private readonly Hotkeys _hotkeys;
     private readonly RegisteredWaitHandle _showRegistration;
+    private SettingsForm? _settingsForm;
     private DateTime _hiddenAt = DateTime.MinValue;
 
     public QuickThemeApplicationContext(EventWaitHandle showEvent, bool showOnStart)
@@ -22,15 +24,20 @@ internal sealed class QuickThemeApplicationContext : ApplicationContext
         _tray = new TrayController();
         _themes = new ThemeController(_form, _tray);
         _updates = new UpdateCoordinator(_form, _tray);
+        _schedule = new ScheduleController(_themes);
         _hotkeys = new Hotkeys();
 
         _form.VisibleChanged += OnFormVisibleChanged;
+        _form.SettingsRequested += ShowSettings;
         _tray.OpenRequested += ShowPanel;
         _tray.ToggleDarkRequested += _themes.ToggleDark;
         _tray.ToggleAppsRequested += _themes.ToggleApps;
         _tray.ToggleSystemRequested += _themes.ToggleSystem;
         _tray.ToggleTransparencyRequested += _themes.ToggleTransparency;
         _tray.FlyoutThemeRequested += _themes.SetFlyoutTheme;
+        _tray.PresetRequested += _themes.ApplyPreset;
+        _tray.SettingsRequested += ShowSettings;
+        _tray.SchedulePauseChanged += OnSchedulePauseChanged;
         _tray.QuitRequested += Quit;
         _tray.TrayClicked += OnTrayClicked;
 
@@ -40,6 +47,7 @@ internal sealed class QuickThemeApplicationContext : ApplicationContext
         // Create the handle up front so cross-instance show requests and theme
         // broadcasts can be received while the flyout is hidden.
         _ = _form.Handle;
+        _schedule.Start();
         _showRegistration = ThreadPool.RegisterWaitForSingleObject(
             showEvent,
             OnShowRequested,
@@ -63,6 +71,8 @@ internal sealed class QuickThemeApplicationContext : ApplicationContext
         {
             _hotkeys.Dispose();
             _showRegistration.Unregister(null);
+            _schedule.Dispose();
+            _settingsForm?.Dispose();
             _tray.Dispose();
             _form.Dispose();
         }
@@ -130,6 +140,36 @@ internal sealed class QuickThemeApplicationContext : ApplicationContext
     }
 
     private void ShowPanel() => _form.ShowPanel();
+
+    private void ShowSettings()
+    {
+        if (_settingsForm is { IsDisposed: false })
+        {
+            _settingsForm.Activate();
+            _settingsForm.BringToFront();
+            return;
+        }
+
+        _settingsForm = new SettingsForm(OnScheduleSettingsChanged, _updates.RequestCheck);
+        _settingsForm.FormClosed += (_, _) =>
+        {
+            _settingsForm = null;
+            _tray.RefreshMenuState();
+        };
+        _settingsForm.Show();
+    }
+
+    private void OnScheduleSettingsChanged()
+    {
+        _schedule.RefreshSchedule();
+        _tray.RefreshMenuState();
+    }
+
+    private void OnSchedulePauseChanged()
+    {
+        _schedule.RefreshSchedule();
+        _settingsForm?.RefreshFromSettings();
+    }
 
     private void Quit()
     {

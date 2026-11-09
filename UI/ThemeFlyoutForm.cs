@@ -15,6 +15,7 @@ internal sealed class ThemeFlyoutForm : Form
     private readonly ThemeRow _systemRow;
     private readonly ThemeRow _transparencyRow;
     private readonly Label _restartLink;
+    private readonly Label _settingsLink;
     private readonly Label _quitLink;
     private readonly CloseButton _closeButton;
     private readonly PictureBox _logo;
@@ -27,6 +28,8 @@ internal sealed class ThemeFlyoutForm : Form
     public event EventHandler? SystemThemeChanged;
 
     public event Action<ThemeSetting, bool>? SettingToggleRequested;
+
+    public event Action? SettingsRequested;
 
     public ThemeFlyoutForm()
     {
@@ -105,9 +108,14 @@ internal sealed class ThemeFlyoutForm : Form
         _transparencyRow.CheckedChanged += OnRowCheckedChanged;
 
         _restartLink = CreateLink("Restart Explorer");
-        _restartLink.Bounds = new Rectangle(14, 248, 150, 24);
+        _restartLink.Bounds = new Rectangle(82, 248, 140, 24);
         _restartLink.TextAlign = ContentAlignment.MiddleLeft;
         _restartLink.Click += OnRestartExplorerClick;
+
+        _settingsLink = CreateLink("Settings");
+        _settingsLink.Bounds = new Rectangle(14, 248, 60, 24);
+        _settingsLink.TextAlign = ContentAlignment.MiddleLeft;
+        _settingsLink.Click += (_, _) => SettingsRequested?.Invoke();
 
         _quitLink = CreateLink("Quit", danger: true);
         _quitLink.Bounds = new Rectangle(ClientSize.Width - 14 - 60, 248, 60, 24);
@@ -124,6 +132,7 @@ internal sealed class ThemeFlyoutForm : Form
             _appsRow,
             _systemRow,
             _transparencyRow,
+            _settingsLink,
             _restartLink,
             _quitLink,
         ]);
@@ -339,6 +348,7 @@ internal sealed class ThemeFlyoutForm : Form
         BackColor = Palette.SurfaceBottom;
         _title.ForeColor = Palette.Text;
         _subtitle.ForeColor = Palette.TextMuted;
+        _settingsLink.ForeColor = Palette.TextMuted;
         _restartLink.ForeColor = Palette.TextMuted;
         _quitLink.ForeColor = Palette.TextMuted;
         _logo.Image = Palette.IsLight

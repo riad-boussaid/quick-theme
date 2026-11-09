@@ -48,8 +48,8 @@ Package the app:
 .\test.ps1
 ```
 
-The test project covers settings serialization, update version comparison, and CLI
-argument parsing. UI behavior is still verified manually.
+The test project covers settings serialization, update version comparison, CLI
+argument parsing, and schedule calculation. UI behavior is still verified manually.
 
 ## Pull requests
 

@@ -14,6 +14,12 @@ public sealed class SettingsServiceTests
             UpdateFeedUrl = "https://example.com/update.json",
             CheckForUpdatesOnStartup = false,
             LastUpdateCheckUtc = new DateTimeOffset(2026, 11, 9, 13, 0, 0, TimeSpan.Zero),
+            ScheduleEnabled = true,
+            SchedulePaused = true,
+            ScheduleLightTime = new TimeOnly(6, 30),
+            ScheduleDarkTime = new TimeOnly(20, 15),
+            ScheduleScope = ScheduleScope.Apps,
+            ScheduleDays = ScheduleDays.Weekdays,
         };
 
         string json = SettingsService.Serialize(settings);
@@ -23,6 +29,12 @@ public sealed class SettingsServiceTests
         Assert.Equal("https://example.com/update.json", roundTripped.UpdateFeedUrl);
         Assert.False(roundTripped.CheckForUpdatesOnStartup);
         Assert.Equal(settings.LastUpdateCheckUtc, roundTripped.LastUpdateCheckUtc);
+        Assert.True(roundTripped.ScheduleEnabled);
+        Assert.True(roundTripped.SchedulePaused);
+        Assert.Equal(new TimeOnly(6, 30), roundTripped.ScheduleLightTime);
+        Assert.Equal(new TimeOnly(20, 15), roundTripped.ScheduleDarkTime);
+        Assert.Equal(ScheduleScope.Apps, roundTripped.ScheduleScope);
+        Assert.Equal(ScheduleDays.Weekdays, roundTripped.ScheduleDays);
     }
 
     [Fact]
