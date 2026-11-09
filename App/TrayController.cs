@@ -13,6 +13,13 @@ internal sealed class TrayController : IDisposable
     private readonly ToolStripMenuItem _flyoutThemeItem;
     private readonly Dictionary<FlyoutThemeMode, ToolStripMenuItem> _flyoutThemeItems = new();
     private readonly ToolStripMenuItem _pauseScheduleItem;
+    private readonly ToolStripMenuItem _scheduleOverrideItem;
+    private readonly ToolStripMenuItem _overrideStatusItem;
+    private readonly ToolStripMenuItem _overrideDarkItem;
+    private readonly ToolStripMenuItem _overrideLightItem;
+    private readonly ToolStripMenuItem _overrideNextSwitchItem;
+    private readonly ToolStripMenuItem _overrideTomorrowItem;
+    private readonly ToolStripMenuItem _clearOverrideItem;
     private readonly ToolStripMenuItem _openItem;
     private readonly ToolStripMenuItem _toggleDarkItem;
     private readonly ToolStripMenuItem _updateItem;
@@ -66,6 +73,43 @@ internal sealed class TrayController : IDisposable
 
         _pauseScheduleItem = new ToolStripMenuItem("Pause schedule", null, (_, _) => ToggleSchedulePause());
 
+        _overrideStatusItem = new ToolStripMenuItem("No temporary override")
+        {
+            Enabled = false,
+        };
+        _overrideDarkItem = new ToolStripMenuItem(
+            "Stay dark for 1 hour",
+            null,
+            (_, _) => ScheduleOverrideRequested?.Invoke(ScheduleOverrideKind.Dark));
+        _overrideLightItem = new ToolStripMenuItem(
+            "Stay light for 1 hour",
+            null,
+            (_, _) => ScheduleOverrideRequested?.Invoke(ScheduleOverrideKind.Light));
+        _overrideNextSwitchItem = new ToolStripMenuItem(
+            "Until next switch",
+            null,
+            (_, _) => ScheduleOverrideRequested?.Invoke(ScheduleOverrideKind.UntilNextSwitch));
+        _overrideTomorrowItem = new ToolStripMenuItem(
+            "Pause until tomorrow",
+            null,
+            (_, _) => ScheduleOverrideRequested?.Invoke(ScheduleOverrideKind.PauseUntilTomorrow));
+        _clearOverrideItem = new ToolStripMenuItem(
+            "Clear override",
+            null,
+            (_, _) => ClearScheduleOverrideRequested?.Invoke());
+        _scheduleOverrideItem = new ToolStripMenuItem("Schedule override");
+        _scheduleOverrideItem.DropDownItems.AddRange(
+        [
+            _overrideStatusItem,
+            new ToolStripSeparator(),
+            _overrideDarkItem,
+            _overrideLightItem,
+            _overrideNextSwitchItem,
+            _overrideTomorrowItem,
+            new ToolStripSeparator(),
+            _clearOverrideItem,
+        ]);
+
         _updateItem = new ToolStripMenuItem("Check for updates...", null, (_, _) => CheckForUpdatesRequested?.Invoke());
         var settingsItem = new ToolStripMenuItem("Settings...", null, (_, _) => SettingsRequested?.Invoke());
         var aboutItem = new ToolStripMenuItem("About Quick Theme...", null, (_, _) => AboutRequested?.Invoke());
@@ -94,6 +138,7 @@ internal sealed class TrayController : IDisposable
             presetsItem,
             _flyoutThemeItem,
             _pauseScheduleItem,
+            _scheduleOverrideItem,
             new ToolStripSeparator(),
             settingsItem,
             _updateItem,
@@ -127,6 +172,8 @@ internal sealed class TrayController : IDisposable
     public event Action<ThemePreset>? PresetRequested;
     public event Action? SettingsRequested;
     public event Action? SchedulePauseChanged;
+    public event Action<ScheduleOverrideKind>? ScheduleOverrideRequested;
+    public event Action? ClearScheduleOverrideRequested;
     public event Action? CheckForUpdatesRequested;
     public event Action? AboutRequested;
     public event Action? QuitRequested;
@@ -159,8 +206,34 @@ internal sealed class TrayController : IDisposable
         AppSettings settings = SettingsService.Current;
         _pauseScheduleItem.Enabled = settings.ScheduleEnabled;
         _pauseScheduleItem.Text = settings.SchedulePaused ? "Resume schedule" : "Pause schedule";
+        RefreshScheduleOverrideMenu(settings);
         _openItem.ShortcutKeyDisplayString = settings.HotkeyOpenPanel;
         _toggleDarkItem.ShortcutKeyDisplayString = settings.HotkeyToggleDark;
+    }
+
+    private void RefreshScheduleOverrideMenu(AppSettings settings)
+    {
+        DateTime now = DateTime.Now;
+        bool scheduleAvailable = settings.ScheduleEnabled;
+        bool canUseTransitions = scheduleAvailable && !settings.SchedulePaused;
+        ScheduleTransition? next = canUseTransitions
+            ? ScheduleCalculator.GetNextTransition(settings, now)
+            : null;
+        ScheduleTransition? tomorrow = canUseTransitions
+            ? ScheduleOverrideService.GetTomorrowTransition(settings, now)
+            : null;
+        string? description = ScheduleOverrideService.Describe(settings, DateTimeOffset.Now);
+
+        _scheduleOverrideItem.Enabled = scheduleAvailable;
+        _overrideDarkItem.Enabled = scheduleAvailable;
+        _overrideLightItem.Enabled = scheduleAvailable;
+        _overrideNextSwitchItem.Enabled = next is not null;
+        _overrideTomorrowItem.Enabled = tomorrow is not null;
+        _clearOverrideItem.Enabled = description is not null;
+        _overrideStatusItem.Text = description
+            ?? (scheduleAvailable
+                ? settings.SchedulePaused ? "Schedule is paused" : "No temporary override"
+                : "Schedule is off");
     }
 
     public void SetUpdateItem(string text, bool enabled)

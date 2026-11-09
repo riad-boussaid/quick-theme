@@ -4,6 +4,21 @@ All notable changes to Quick Theme are documented here.
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-11-09
+
+### Added
+
+- Temporary schedule overrides from the tray menu: stay dark or light for one hour,
+  keep the current theme until the next switch, or pause until tomorrow
+- Active overrides and the next scheduled switch are shown in the flyout and Schedule settings
+- Overrides persist across restarts and expire automatically
+- Tests for override timing, expiration, and persistence; the suite is now 69 tests
+
+### Changed
+
+- Pausing the schedule clears an active temporary override
+- Clicking an active override status in the flyout resumes the schedule
+
 ## [1.5.1] - 2026-11-09
 
 ### Added

@@ -380,7 +380,7 @@ internal sealed class SettingsForm : Form
             panel,
             ref y,
             "Pause schedule",
-            "Suspend switching until resumed");
+            "Suspend switching indefinitely");
 
         _scheduleStatus = AddNote(panel, ref y, string.Empty, 24);
     }
@@ -952,6 +952,13 @@ internal sealed class SettingsForm : Form
         if (!settings.ScheduleEnabled)
         {
             _scheduleStatus.Text = "Schedule is off.";
+            return;
+        }
+
+        if (ScheduleOverrideService.Describe(settings, DateTimeOffset.Now) is { } overrideText)
+        {
+            _scheduleStatus.ForeColor = Palette.Accent;
+            _scheduleStatus.Text = $"{overrideText} (temporary)";
             return;
         }
 

@@ -23,6 +23,8 @@ public sealed class SettingsServiceTests
             ScheduleLongitude = -0.1278,
             ScheduleScope = ScheduleScope.Apps,
             ScheduleDays = ScheduleDays.Weekdays,
+            ScheduleOverrideKind = ScheduleOverrideKind.PauseUntilTomorrow,
+            ScheduleOverrideUntil = new DateTimeOffset(2026, 11, 10, 7, 0, 0, TimeSpan.Zero),
             HotkeyToggleDark = "Ctrl+Shift+D",
             HotkeyOpenPanel = "Ctrl+Shift+Q",
         };
@@ -43,6 +45,8 @@ public sealed class SettingsServiceTests
         Assert.Equal(-0.1278, roundTripped.ScheduleLongitude);
         Assert.Equal(ScheduleScope.Apps, roundTripped.ScheduleScope);
         Assert.Equal(ScheduleDays.Weekdays, roundTripped.ScheduleDays);
+        Assert.Equal(ScheduleOverrideKind.PauseUntilTomorrow, roundTripped.ScheduleOverrideKind);
+        Assert.Equal(settings.ScheduleOverrideUntil, roundTripped.ScheduleOverrideUntil);
         Assert.Equal("Ctrl+Shift+D", roundTripped.HotkeyToggleDark);
         Assert.Equal("Ctrl+Shift+Q", roundTripped.HotkeyOpenPanel);
     }
@@ -56,6 +60,8 @@ public sealed class SettingsServiceTests
         Assert.Equal(string.Empty, settings.UpdateFeedUrl);
         Assert.True(settings.CheckForUpdatesOnStartup);
         Assert.Null(settings.LastUpdateCheckUtc);
+        Assert.Equal(ScheduleOverrideKind.None, settings.ScheduleOverrideKind);
+        Assert.Null(settings.ScheduleOverrideUntil);
     }
 
     [Fact]
