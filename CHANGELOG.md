@@ -4,6 +4,10 @@ All notable changes to Quick Theme are documented here.
 
 ## [Unreleased]
 
+### Changed
+
+- Updated the Winget manifest and submission docs to 1.6.1
+
 ## [1.6.1] - 2026-11-09
 
 ### Added

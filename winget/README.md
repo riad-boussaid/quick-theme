@@ -14,9 +14,9 @@ winget install RiadBoussaid.QuickTheme
 
 ```powershell
 .\winget\generate-manifests.ps1 `
-  -Version 1.5.0 `
-  -InstallerUrl "https://github.com/riad-boussaid/quick-theme/releases/download/v1.5.0/quick-theme-1.5.0-setup.exe" `
-  -InstallerSha256 "B0C70BF3C58FC6B9F6830B15713023B9185D3A9C59C964830BCBBC3B45CFA226"
+  -Version 1.6.1 `
+  -InstallerUrl "https://github.com/riad-boussaid/quick-theme/releases/download/v1.6.1/quick-theme-1.6.1-setup.exe" `
+  -InstallerSha256 "3AEE3227967C188CA6919E8159462CD7684851AD20DAF1CCF3DB641FDF5DFA9B"
 ```
 
 This writes the three files required by winget under
@@ -25,7 +25,7 @@ This writes the three files required by winget under
 ## Validate locally
 
 ```powershell
-winget validate --manifest .\winget\manifests\r\RiadBoussaid\QuickTheme\1.5.0
+winget validate --manifest .\winget\manifests\r\RiadBoussaid\QuickTheme\1.6.1
 ```
 
 ## Test locally
@@ -34,7 +34,7 @@ Local manifest installs require the feature to be enabled by an administrator:
 
 ```powershell
 winget settings --enable LocalManifestFiles
-winget install --manifest .\winget\manifests\r\RiadBoussaid\QuickTheme\1.5.0
+winget install --manifest .\winget\manifests\r\RiadBoussaid\QuickTheme\1.6.1
 ```
 
 ## Submit
@@ -43,18 +43,18 @@ The Microsoft WinGet Releaser action requires **at least one version** of the
 package to already exist in `microsoft/winget-pkgs`. Because of that, the first
 version must be submitted manually.
 
-For v1.5.0 you can either:
+For the initial submission you can either:
 
 - Open a PR to `microsoft/winget-pkgs` adding the files under
-  `manifests/r/RiadBoussaid/QuickTheme/1.5.0/`, or
+  `manifests/r/RiadBoussaid/QuickTheme/1.6.1/`, or
 - Install WingetCreate and run:
 
   ```powershell
   winget install --id Microsoft.WingetCreate --exact
-  wingetcreate submit .\winget\manifests\r\RiadBoussaid\QuickTheme\1.5.0 --token <token>
+  wingetcreate submit .\winget\manifests\r\RiadBoussaid\QuickTheme\1.6.1 --token <token>
   ```
 
-After v1.5.0 is merged, the release workflow dispatches
+After the initial package is merged, the release workflow dispatches
 `.github/workflows/winget.yml` for future `v*` releases, provided the
 `WINGET_TOKEN` repository secret is configured. The explicit dispatch is needed
 because GitHub does not run workflows from `release` events created with the
@@ -68,5 +68,5 @@ Fork `microsoft/winget-pkgs` once under the same GitHub account. The action uses
 that fork to open the manifest PR.
 
 You can trigger the first automated submission manually from the **Winget**
-workflow with tag `v1.5.0` after the initial version is in the repository.
+workflow with tag `v1.6.1` after the initial version is in the repository.
 Without the secret, the workflow skips submission safely.
