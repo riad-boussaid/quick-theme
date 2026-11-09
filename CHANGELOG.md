@@ -2,6 +2,13 @@
 
 All notable changes to Quick Theme are documented here.
 
+## [1.2.1] - 2026-11-09
+
+### Changed
+
+- Include the MIT license in portable packages and the installer
+- Refresh GitHub Actions to their current major versions
+
 ## [1.2.0] - 2026-11-09
 
 ### Added

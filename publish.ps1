@@ -82,6 +82,7 @@ if ($publishedFiles.Count -ne 1) {
 Copy-Item $exe (Join-Path $artifacts 'quick-theme.exe') -Force
 Copy-Item $exe (Join-Path $portableDirectory 'quick-theme.exe') -Force
 Copy-Item (Join-Path $root 'README.md') (Join-Path $portableDirectory 'README.md') -Force
+Copy-Item (Join-Path $root 'LICENSE') (Join-Path $portableDirectory 'LICENSE') -Force
 
 $zipPath = Join-Path $artifacts "quick-theme-$Version-win-x64.zip"
 Remove-Item $zipPath -Force -ErrorAction SilentlyContinue

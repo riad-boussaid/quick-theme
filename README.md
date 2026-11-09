@@ -81,7 +81,7 @@ This creates:
 Useful options:
 
 ```powershell
-.\publish.ps1 -Version 1.2.0
+.\publish.ps1 -Version 1.2.1
 .\publish.ps1 -FeedUrl "https://example.com/quick-theme/update.json"
 .\publish.ps1 -UpdateUrl "https://example.com/quick-theme/quick-theme.exe"
 .\publish.ps1 -SkipInstaller

@@ -26,12 +26,14 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 UninstallDisplayIcon={app}\quick-theme.exe
 SetupIconFile=..\icons\themes-256-black.ico
+LicenseFile=..\LICENSE
 CloseApplications=yes
 RestartApplications=no
 
 [Files]
 Source: "..\artifacts\publish-win-x64\quick-theme.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\README.md"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
 
 [Tasks]
 Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription: "Additional shortcuts:"; Flags: unchecked
