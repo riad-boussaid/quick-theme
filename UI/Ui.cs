@@ -1,6 +1,6 @@
 using System.Drawing.Drawing2D;
 
-namespace quick_theme.UI;
+namespace QuickTheme.UI;
 
 internal static class Ui
 {

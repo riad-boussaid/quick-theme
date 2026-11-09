@@ -1,6 +1,8 @@
 using System.Drawing;
+using QuickTheme.Models;
+using QuickTheme.Services;
 
-namespace quick_theme.UI;
+namespace QuickTheme.UI;
 
 internal sealed record PaletteColors(
     Color SurfaceTop,

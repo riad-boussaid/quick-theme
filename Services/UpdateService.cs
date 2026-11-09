@@ -3,26 +3,9 @@ using System.Diagnostics.CodeAnalysis;
 using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text.Json;
+using QuickTheme.Models;
 
-namespace quick_theme;
-
-internal sealed class UpdateManifest
-{
-    public string Version { get; set; } = string.Empty;
-    public string Url { get; set; } = string.Empty;
-    public string Sha256 { get; set; } = string.Empty;
-    public string? Notes { get; set; }
-}
-
-internal sealed class UpdateCheckResult
-{
-    public bool IsConfigured { get; init; }
-    public bool IsNewer { get; init; }
-    public UpdateManifest? Manifest { get; init; }
-    public string? Error { get; init; }
-}
-
-internal readonly record struct UpdateDownloadProgress(long BytesReceived, long? TotalBytes);
+namespace QuickTheme.Services;
 
 internal static class UpdateService
 {
@@ -317,6 +300,9 @@ finally {
         version = Normalize(parsed);
         return true;
     }
+
+    internal static bool IsNewerVersion(string candidate, Version currentVersion) =>
+        TryParseVersion(candidate, out Version parsed) && parsed > Normalize(currentVersion);
 
     private static Version Normalize(Version version) =>
         new(version.Major, version.Minor, Math.Max(version.Build, 0), Math.Max(version.Revision, 0));

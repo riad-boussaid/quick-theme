@@ -3,7 +3,7 @@
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0-windows</TargetFramework>
-    <RootNamespace>quick_theme</RootNamespace>
+    <RootNamespace>QuickTheme</RootNamespace>
     <AssemblyName>quick-theme</AssemblyName>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -25,6 +25,16 @@
   <ItemGroup>
     <Content Include="icons\themes-256-black.ico" />
     <Content Include="icons\themes-32.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="tests\**" />
+    <EmbeddedResource Remove="tests\**" />
+    <None Remove="tests\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="QuickTheme.Tests" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(UpdateFeedUrl)' != ''">

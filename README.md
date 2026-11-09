@@ -49,8 +49,6 @@ Published builds are self-contained and do not require the .NET runtime.
 
 ## Build
 
-Clone the repository and build:
-
 ```powershell
 git clone https://github.com/riad-boussaid/quick-theme.git
 cd quick-theme
@@ -64,6 +62,18 @@ dotnet build -c Release
 ```
 
 The framework-dependent executable is written to `bin\Release\net10.0-windows\quick-theme.exe`.
+
+## Test
+
+```powershell
+.\test.ps1
+```
+
+or, with a .NET 10 SDK on `PATH`:
+
+```powershell
+dotnet test tests\QuickTheme.Tests\QuickTheme.Tests.csproj
+```
 
 ## Package
 

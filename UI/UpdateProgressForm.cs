@@ -1,6 +1,9 @@
 using System.Drawing.Drawing2D;
+using QuickTheme.Models;
+using QuickTheme.Services;
+using QuickTheme.UI.Controls;
 
-namespace quick_theme.UI;
+namespace QuickTheme.UI;
 
 internal sealed class UpdateProgressForm : Form
 {

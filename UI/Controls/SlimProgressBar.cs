@@ -1,7 +1,8 @@
 using System.ComponentModel;
 using System.Drawing.Drawing2D;
+using QuickTheme.UI;
 
-namespace quick_theme.UI;
+namespace QuickTheme.UI.Controls;
 
 internal sealed class SlimProgressBar : Control
 {

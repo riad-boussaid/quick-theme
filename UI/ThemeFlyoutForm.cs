@@ -1,11 +1,12 @@
 using System.Drawing.Drawing2D;
 using System.Runtime.InteropServices;
-using System.Security;
-using quick_theme.UI;
+using QuickTheme.Models;
+using QuickTheme.Services;
+using QuickTheme.UI.Controls;
 
-namespace quick_theme;
+namespace QuickTheme.UI;
 
-internal sealed class Form1 : Form
+internal sealed class ThemeFlyoutForm : Form
 {
     private const int CsDropShadow = 0x00020000;
     private const int WmSettingChange = 0x001A;
@@ -23,9 +24,11 @@ internal sealed class Form1 : Form
     private bool _suppressDeactivateHide;
     private bool _systemRefreshQueued;
 
-    public event EventHandler? ThemeChanged;
+    public event EventHandler? SystemThemeChanged;
 
-    public Form1()
+    public event Action<ThemeSetting, bool>? SettingToggleRequested;
+
+    public ThemeFlyoutForm()
     {
         Palette.Apply(SettingsService.Current.FlyoutTheme, ThemeService.SystemUsesDarkTheme);
 
@@ -145,6 +148,28 @@ internal sealed class Form1 : Form
         ThemeService.RefreshAccentColor();
         ApplyPalette();
         RefreshState();
+    }
+
+    public void ShowThemeError(string message)
+    {
+        _suppressDeactivateHide = true;
+        try
+        {
+            var page = new TaskDialogPage
+            {
+                Caption = "Quick Theme",
+                Heading = "Could not change the theme",
+                Text = message,
+                Icon = TaskDialogIcon.Error,
+                Buttons = { TaskDialogButton.OK },
+            };
+
+            TaskDialog.ShowDialog(this, page);
+        }
+        finally
+        {
+            _suppressDeactivateHide = false;
+        }
     }
 
     protected override CreateParams CreateParams
@@ -279,7 +304,7 @@ internal sealed class Form1 : Form
                 }
 
                 RefreshThemeState();
-                ThemeChanged?.Invoke(this, EventArgs.Empty);
+                SystemThemeChanged?.Invoke(this, EventArgs.Empty);
             });
         }
         catch (Exception ex) when (ex is InvalidOperationException or ObjectDisposedException)
@@ -330,42 +355,13 @@ internal sealed class Form1 : Form
             return;
         }
 
-        try
-        {
-            if (row == _appsRow)
-            {
-                ThemeService.AppsUseDarkTheme = row.Checked;
-            }
-            else if (row == _systemRow)
-            {
-                ThemeService.SystemUsesDarkTheme = row.Checked;
-            }
-            else if (row == _transparencyRow)
-            {
-                ThemeService.TransparencyEnabled = row.Checked;
-            }
-            else
-            {
-                return;
-            }
+        ThemeSetting setting = row == _appsRow
+            ? ThemeSetting.Apps
+            : row == _systemRow
+                ? ThemeSetting.System
+                : ThemeSetting.Transparency;
 
-            ThemeService.NotifyThemeChanged();
-            ThemeChanged?.Invoke(this, EventArgs.Empty);
-        }
-        catch (Exception ex) when (ex is UnauthorizedAccessException or SecurityException or IOException or InvalidOperationException)
-        {
-            _refreshing = true;
-            try
-            {
-                row.SetCheckedSilently(!row.Checked);
-            }
-            finally
-            {
-                _refreshing = false;
-            }
-
-            ShowError("Could not change the theme", ex.Message);
-        }
+        SettingToggleRequested?.Invoke(setting, row.Checked);
     }
 
     private async void OnRestartExplorerClick(object? sender, EventArgs e)
@@ -394,29 +390,7 @@ internal sealed class Form1 : Form
         }
 
         HidePanel();
-        await ThemeService.RestartExplorerAsync();
-    }
-
-    private void ShowError(string heading, string text)
-    {
-        _suppressDeactivateHide = true;
-        try
-        {
-            var page = new TaskDialogPage
-            {
-                Caption = "Quick Theme",
-                Heading = heading,
-                Text = text,
-                Icon = TaskDialogIcon.Error,
-                Buttons = { TaskDialogButton.OK },
-            };
-
-            TaskDialog.ShowDialog(this, page);
-        }
-        finally
-        {
-            _suppressDeactivateHide = false;
-        }
+        await ExplorerService.RestartAsync();
     }
 
     private void RefreshState()

@@ -1,29 +1,17 @@
 using System.Reflection;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using QuickTheme.Models;
 
-namespace quick_theme;
-
-internal enum FlyoutThemeMode
-{
-    System,
-    Dark,
-    Light,
-}
-
-internal sealed class AppSettings
-{
-    public FlyoutThemeMode FlyoutTheme { get; set; } = FlyoutThemeMode.System;
-    public string UpdateFeedUrl { get; set; } = string.Empty;
-    public bool CheckForUpdatesOnStartup { get; set; } = true;
-    public DateTimeOffset? LastUpdateCheckUtc { get; set; }
-}
+namespace QuickTheme.Services;
 
 internal static class SettingsService
 {
-    private static readonly System.Text.Json.JsonSerializerOptions JsonOptions = new()
+    private static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true,
         PropertyNameCaseInsensitive = true,
-        Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() },
+        Converters = { new JsonStringEnumConverter() },
     };
 
     public static AppSettings Current { get; private set; } = new();
@@ -69,9 +57,7 @@ internal static class SettingsService
                 return;
             }
 
-            string json = File.ReadAllText(SettingsFilePath);
-            Current = System.Text.Json.JsonSerializer.Deserialize<AppSettings>(json, JsonOptions)
-                      ?? new AppSettings();
+            Current = Deserialize(File.ReadAllText(SettingsFilePath));
         }
         catch
         {
@@ -88,7 +74,7 @@ internal static class SettingsService
             Directory.CreateDirectory(SettingsDirectory);
 
             string temporaryPath = SettingsFilePath + ".tmp";
-            File.WriteAllText(temporaryPath, System.Text.Json.JsonSerializer.Serialize(Current, JsonOptions));
+            File.WriteAllText(temporaryPath, Serialize(Current));
             File.Move(temporaryPath, SettingsFilePath, overwrite: true);
             return true;
         }
@@ -105,4 +91,10 @@ internal static class SettingsService
             Save();
         }
     }
+
+    internal static string Serialize(AppSettings settings) =>
+        JsonSerializer.Serialize(settings, JsonOptions);
+
+    internal static AppSettings Deserialize(string json) =>
+        JsonSerializer.Deserialize<AppSettings>(json, JsonOptions) ?? new AppSettings();
 }
