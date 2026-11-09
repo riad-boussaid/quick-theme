@@ -1,4 +1,4 @@
-namespace quick_theme;
+namespace QuickTheme;
 
 internal static class AppInfo
 {

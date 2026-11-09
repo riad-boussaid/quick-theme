@@ -1,6 +1,6 @@
 using System.Runtime.InteropServices;
 
-namespace quick_theme.UI;
+namespace QuickTheme.App;
 
 internal sealed class HotkeyWindow : NativeWindow, IDisposable
 {

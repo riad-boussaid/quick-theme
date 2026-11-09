@@ -2,6 +2,16 @@
 
 All notable changes to Quick Theme are documented here.
 
+## [Unreleased]
+
+### Changed
+
+- Reorganized the project into `App/`, `Services/`, `Models/`, and `UI/`
+- Split the application context, tray menu, theme actions, update flow, CLI, and
+  single-instance handling into focused classes
+- Renamed the namespace to `QuickTheme` and the flyout to `ThemeFlyoutForm`
+- Added unit tests for settings, version comparison, and CLI parsing
+
 ## [1.2.1] - 2026-11-09
 
 ### Changed

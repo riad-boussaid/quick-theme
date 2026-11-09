@@ -32,18 +32,24 @@ Package the app:
 
 | Path | Purpose |
 | --- | --- |
-| `Program.cs` | Tray icon, menu, CLI commands, update orchestration |
-| `Form1.cs` | Flyout window |
-| `ThemeService.cs` | Windows registry access and theme values |
-| `SettingsService.cs` | JSON settings under `%APPDATA%\Quick Theme` |
-| `UpdateService.cs` | Update manifest, download, hash verification, self-update |
-| `UI/` | Custom controls, palette, dialogs, renderers |
+| `App/` | Entry point, app context, tray controller, theme/update coordinators, hotkeys |
+| `Services/` | Theme registry, settings, startup, Explorer, notifications, updates |
+| `Models/` | Settings and update models |
+| `UI/` | Flyout and update dialogs, palette, menu renderer, drawing helpers |
+| `UI/Controls/` | Custom toggle, row, close-button, and progress-bar controls |
 | `installer/` | Inno Setup script |
+| `tests/QuickTheme.Tests/` | Unit tests |
 | `publish.ps1` | Single-file publish, zip, manifest, installer |
 | `.github/workflows/` | CI and release automation |
 
-There is no automated test suite yet. Please build, run the app, and manually verify
-the relevant behavior before opening a pull request.
+## Tests
+
+```powershell
+.\test.ps1
+```
+
+The test project covers settings serialization, update version comparison, and CLI
+argument parsing. UI behavior is still verified manually.
 
 ## Pull requests
 
