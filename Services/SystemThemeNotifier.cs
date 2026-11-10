@@ -20,6 +20,18 @@ internal static class SystemThemeNotifier
         NotifySettingChanged("ImmersiveColorSet");
     }
 
+    public static void NotifyAccentChanged()
+    {
+        // Accent changes touch DWM, the shell, and the taskbar, so notify each
+        // area the same way Windows Settings does. Keep it off the UI thread.
+        ThreadPool.QueueUserWorkItem(static _ =>
+        {
+            NotifySettingChanged("ImmersiveColorSet");
+            NotifySettingChanged("WindowsThemeElement");
+            NotifySettingChanged("TraySettings");
+        });
+    }
+
     private static void NotifySettingChanged(string setting)
     {
         _ = SendMessageTimeout(

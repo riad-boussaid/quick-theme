@@ -7,7 +7,6 @@ namespace QuickTheme.Services;
 internal static class ThemeService
 {
     private const string PersonalizePath = @"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize";
-    private const string DwmPath = @"Software\Microsoft\Windows\DWM";
 
     private const string AppsLightValue = "AppsUseLightTheme";
     private const string SystemLightValue = "SystemUsesLightTheme";
@@ -79,30 +78,12 @@ internal static class ThemeService
 
     private static Color ReadAccentColor()
     {
-        try
-        {
-            using RegistryKey? key = Registry.CurrentUser.OpenSubKey(DwmPath);
-            if (key?.GetValue("AccentColor") is int abgr)
-            {
-                // AccentColor is stored as 0xAABBGGRR.
-                Color color = Color.FromArgb(
-                    255,
-                    abgr & 0xFF,
-                    (abgr >> 8) & 0xFF,
-                    (abgr >> 16) & 0xFF);
+        Color color = AccentColorService.CurrentAccent;
 
-                if (color.GetSaturation() >= 0.15f && color.GetBrightness() >= 0.25f)
-                {
-                    return color;
-                }
-            }
-        }
-        catch (Exception ex) when (IsRegistryException(ex))
-        {
-            // Fall through to the default accent.
-        }
-
-        return Color.FromArgb(76, 194, 255);
+        // Very dark accents would make Quick Theme's own controls unreadable.
+        return color.GetBrightness() >= 0.2f
+            ? color
+            : AccentPaletteBuilder.Build(color)[2];
     }
 
     private static bool IsRegistryException(Exception ex) =>

@@ -1,4 +1,6 @@
 using System.Runtime.ExceptionServices;
+using QuickTheme.App;
+using QuickTheme.Models;
 using QuickTheme.UI;
 
 namespace QuickTheme.Tests;
@@ -7,7 +9,7 @@ namespace QuickTheme.Tests;
 public sealed class WinFormsSmokeTests
 {
     [Fact]
-    public void SettingsAndFlyout_CanBeCreatedAndDisposed()
+    public void WindowsAndTray_CanBeCreatedAndDisposed()
     {
         Exception? error = null;
 
@@ -15,6 +17,8 @@ public sealed class WinFormsSmokeTests
         {
             try
             {
+                Palette.Apply(FlyoutThemeMode.Dark, systemDark: true);
+
                 using var settings = new SettingsForm(
                     scheduleChanged: () => { },
                     checkForUpdates: () => { },
@@ -28,6 +32,9 @@ public sealed class WinFormsSmokeTests
                 _ = flyout.Handle;
                 flyout.RefreshThemeState();
                 flyout.RefreshScheduleStatus();
+
+                using var tray = new TrayController();
+                tray.RefreshMenuState();
             }
             catch (Exception ex)
             {

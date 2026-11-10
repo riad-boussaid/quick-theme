@@ -74,7 +74,7 @@ internal sealed class ThemeRow : Control
 
         int pad = Scale(14);
 
-        if (_hover)
+        if (_hover && Enabled)
         {
             var hoverRect = new Rectangle(Scale(4), 0, Width - Scale(8), Height - 1);
             using var hoverPath = Ui.RoundedRect(hoverRect, Scale(9));
@@ -96,8 +96,11 @@ internal sealed class ThemeRow : Control
             TextFormatFlags.NoPadding |
             TextFormatFlags.EndEllipsis;
 
-        TextRenderer.DrawText(g, _title, _titleFont, titleRect, Palette.Text, textFlags);
-        TextRenderer.DrawText(g, _subtitle, _subtitleFont, subtitleRect, Palette.TextMuted, textFlags);
+        Color titleColor = Enabled ? Palette.Text : Palette.TextDisabled;
+        Color subtitleColor = Enabled ? Palette.TextMuted : Palette.TextDisabled;
+
+        TextRenderer.DrawText(g, _title, _titleFont, titleRect, titleColor, textFlags);
+        TextRenderer.DrawText(g, _subtitle, _subtitleFont, subtitleRect, subtitleColor, textFlags);
 
         string state = Checked ? _onText : _offText;
         Size stateSize = TextRenderer.MeasureText(g, state, _stateFont, Size.Empty, TextFormatFlags.NoPadding);
@@ -107,12 +110,16 @@ internal sealed class ThemeRow : Control
             stateSize.Width,
             stateSize.Height);
 
+        Color stateColor = !Enabled
+            ? Palette.TextDisabled
+            : Checked ? Palette.Accent : Palette.TextMuted;
+
         TextRenderer.DrawText(
             g,
             state,
             _stateFont,
             stateRect,
-            Checked ? Palette.Accent : Palette.TextMuted,
+            stateColor,
             TextFormatFlags.NoPadding | TextFormatFlags.Left);
     }
 

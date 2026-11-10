@@ -1,3 +1,4 @@
+using System.Drawing;
 using QuickTheme.Models;
 using QuickTheme.Services;
 using QuickTheme.UI;
@@ -57,9 +58,13 @@ internal sealed class QuickThemeApplicationContext : ApplicationContext
         _tray.ToggleAppsRequested += _themes.ToggleApps;
         _tray.ToggleSystemRequested += _themes.ToggleSystem;
         _tray.ToggleTransparencyRequested += _themes.ToggleTransparency;
+        _tray.AccentColorRequested += OnAccentColorRequested;
+        _tray.AutomaticAccentRequested += OnAutomaticAccentRequested;
+        _tray.AccentSettingsRequested += ShowAccentSettings;
         _tray.FlyoutThemeRequested += _themes.SetFlyoutTheme;
         _tray.PresetRequested += _themes.ApplyPreset;
         _tray.SettingsRequested += ShowSettings;
+        _form.AccentSettingsRequested += ShowAccentSettings;
         _tray.SchedulePauseChanged += OnSchedulePauseChanged;
         _tray.ScheduleOverrideRequested += OnScheduleOverrideRequested;
         _tray.ClearScheduleOverrideRequested += OnClearScheduleOverrideRequested;
@@ -166,10 +171,19 @@ internal sealed class QuickThemeApplicationContext : ApplicationContext
 
     private void ShowPanel() => _form.ShowPanel();
 
-    private void ShowSettings()
+    private void ShowSettings() => ShowSettings(showColors: false);
+
+    private void ShowAccentSettings() => ShowSettings(showColors: true);
+
+    private void ShowSettings(bool showColors)
     {
         if (_settingsForm is { IsDisposed: false })
         {
+            if (showColors)
+            {
+                _settingsForm.ShowColorsSection();
+            }
+
             _settingsForm.Activate();
             _settingsForm.BringToFront();
             return;
@@ -178,13 +192,72 @@ internal sealed class QuickThemeApplicationContext : ApplicationContext
         _settingsForm = new SettingsForm(
             OnScheduleSettingsChanged,
             _updates.RequestCheck,
-            ApplyHotkeys);
+            ApplyHotkeys,
+            OnAccentChanged);
         _settingsForm.FormClosed += (_, _) =>
         {
             _settingsForm = null;
             _tray.RefreshMenuState();
         };
         _settingsForm.Show();
+
+        if (showColors)
+        {
+            _settingsForm.ShowColorsSection();
+        }
+    }
+
+    private void OnAccentColorRequested(Color color)
+    {
+        try
+        {
+            AccentColorService.Apply(
+                color,
+                AccentColorService.AccentOnTaskbar,
+                AccentColorService.AccentOnTitleBars);
+
+            _form.RefreshThemeState();
+            _settingsForm?.RefreshFromSettings();
+            _tray.RefreshMenuState();
+        }
+        catch (Exception ex) when (ex is UnauthorizedAccessException or System.Security.SecurityException or IOException or InvalidOperationException)
+        {
+            _tray.ShowBalloon("Quick Theme", "Could not change the accent color.", ToolTipIcon.Error);
+        }
+    }
+
+    private async void OnAutomaticAccentRequested()
+    {
+        try
+        {
+            if (AccentColorService.AutomaticAccent)
+            {
+                AccentColorService.DisableAutomaticAccent();
+            }
+            else
+            {
+                bool refreshed = await AccentColorService.EnableAutomaticAccentAsync();
+                if (!refreshed)
+                {
+                    _tray.ShowBalloon(
+                        "Quick Theme",
+                        "Automatic accent enabled. Windows will update it on the next wallpaper change.",
+                        ToolTipIcon.Info);
+                }
+            }
+
+            if (!_form.IsDisposed)
+            {
+                _form.RefreshThemeState();
+            }
+
+            _settingsForm?.RefreshFromSettings();
+            _tray.RefreshMenuState();
+        }
+        catch (Exception ex) when (ex is UnauthorizedAccessException or System.Security.SecurityException or IOException or InvalidOperationException)
+        {
+            _tray.ShowBalloon("Quick Theme", "Could not change the accent color.", ToolTipIcon.Error);
+        }
     }
 
     private string? ApplyHotkeys(string toggle, string open)
@@ -205,6 +278,16 @@ internal sealed class QuickThemeApplicationContext : ApplicationContext
     {
         _schedule.RefreshSchedule();
         _form.RefreshScheduleStatus();
+        _tray.RefreshMenuState();
+    }
+
+    private void OnAccentChanged()
+    {
+        if (!_form.IsDisposed)
+        {
+            _form.RefreshThemeState();
+        }
+
         _tray.RefreshMenuState();
     }
 

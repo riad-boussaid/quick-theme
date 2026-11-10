@@ -37,9 +37,11 @@ internal sealed class PillButton : Control
         Graphics g = e.Graphics;
         g.SmoothingMode = SmoothingMode.AntiAlias;
 
-        Color background = _primary
-            ? (_hover ? ControlPaint.Light(Palette.Accent, 0.10f) : Palette.Accent)
-            : (_hover ? Palette.RowHover : Palette.MenuHover);
+        Color background = !Enabled
+            ? Palette.MenuSurface
+            : _primary
+                ? (_hover ? ControlPaint.Light(Palette.Accent, 0.10f) : Palette.Accent)
+                : (_hover ? Palette.RowHover : Palette.MenuHover);
 
         var bounds = new RectangleF(0.5f, 0.5f, Width - 1f, Height - 1f);
         using (var path = Ui.RoundedRect(bounds, Height / 2f))
@@ -55,7 +57,11 @@ internal sealed class PillButton : Control
             g.DrawPath(border, path);
         }
 
-        Color textColor = _primary ? ContrastText(background) : Palette.Text;
+        Color textColor = !Enabled
+            ? Palette.TextDisabled
+            : _primary
+                ? ContrastText(background)
+                : Palette.Text;
 
         TextRenderer.DrawText(
             g,

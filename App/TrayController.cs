@@ -1,4 +1,5 @@
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using QuickTheme.Models;
 using QuickTheme.Services;
 using QuickTheme.UI;
@@ -10,6 +11,11 @@ internal sealed class TrayController : IDisposable
     private readonly NotifyIcon _tray;
     private readonly ContextMenuStrip _menu;
     private readonly ToolStripMenuItem _startupItem;
+    private readonly ToolStripMenuItem _accentItem;
+    private readonly ToolStripMenuItem _automaticAccentItem;
+    private readonly ToolStripMenuItem _accentSettingsItem;
+    private readonly Dictionary<int, ToolStripMenuItem> _accentItems = new();
+    private readonly List<Image> _accentImages = [];
     private readonly ToolStripMenuItem _flyoutThemeItem;
     private readonly Dictionary<FlyoutThemeMode, ToolStripMenuItem> _flyoutThemeItems = new();
     private readonly ToolStripMenuItem _pauseScheduleItem;
@@ -64,6 +70,42 @@ internal sealed class TrayController : IDisposable
         }
 
         UpdateFlyoutThemeMenu();
+
+        _accentItem = new ToolStripMenuItem("Accent color");
+        _automaticAccentItem = new ToolStripMenuItem(
+            "Automatic",
+            null,
+            (_, _) => AutomaticAccentRequested?.Invoke())
+        {
+            Image = CreateAutomaticAccentSwatch(),
+            ToolTipText = "Use a color from the wallpaper",
+        };
+        _accentItem.DropDownItems.Add(_automaticAccentItem);
+        _accentItem.DropDownItems.Add(new ToolStripSeparator());
+
+        foreach ((string name, Color color) in AccentColors.Quick)
+        {
+            var item = new ToolStripMenuItem(name, null, (_, _) => AccentColorRequested?.Invoke(color))
+            {
+                Image = CreateAccentSwatch(color),
+                ToolTipText = $"#{color.R:X2}{color.G:X2}{color.B:X2}",
+            };
+            _accentItems[color.ToArgb()] = item;
+            _accentItem.DropDownItems.Add(item);
+        }
+
+        _accentItem.DropDownItems.Add(new ToolStripSeparator());
+        _accentSettingsItem = new ToolStripMenuItem(
+            "More colors...",
+            null,
+            (_, _) => AccentSettingsRequested?.Invoke());
+        _accentItem.DropDownItems.Add(_accentSettingsItem);
+
+        if (_accentItem.DropDown is ToolStripDropDownMenu accentMenu)
+        {
+            accentMenu.ShowImageMargin = true;
+            accentMenu.ShowCheckMargin = true;
+        }
 
         var presetsItem = new ToolStripMenuItem("Presets");
         var allDarkItem = new ToolStripMenuItem("All dark", null, (_, _) => PresetRequested?.Invoke(ThemePreset.AllDark));
@@ -136,6 +178,7 @@ internal sealed class TrayController : IDisposable
             toggleTransparencyItem,
             new ToolStripSeparator(),
             presetsItem,
+            _accentItem,
             _flyoutThemeItem,
             _pauseScheduleItem,
             _scheduleOverrideItem,
@@ -168,6 +211,9 @@ internal sealed class TrayController : IDisposable
     public event Action? ToggleAppsRequested;
     public event Action? ToggleSystemRequested;
     public event Action? ToggleTransparencyRequested;
+    public event Action<Color>? AccentColorRequested;
+    public event Action? AutomaticAccentRequested;
+    public event Action? AccentSettingsRequested;
     public event Action<FlyoutThemeMode>? FlyoutThemeRequested;
     public event Action<ThemePreset>? PresetRequested;
     public event Action? SettingsRequested;
@@ -202,6 +248,7 @@ internal sealed class TrayController : IDisposable
     {
         _startupItem.Checked = StartupService.IsEnabled;
         UpdateFlyoutThemeMenu();
+        RefreshAccentMenu();
 
         AppSettings settings = SettingsService.Current;
         _pauseScheduleItem.Enabled = settings.ScheduleEnabled;
@@ -266,6 +313,13 @@ internal sealed class TrayController : IDisposable
         _tray.Visible = false;
         _tray.Dispose();
         _menu.Dispose();
+
+        foreach (Image image in _accentImages)
+        {
+            image.Dispose();
+        }
+
+        _accentImages.Clear();
     }
 
     private static string FlyoutThemeLabel(FlyoutThemeMode mode) => mode switch
@@ -284,6 +338,63 @@ internal sealed class TrayController : IDisposable
         {
             item.Text = (mode == activeMode ? "\u2713  " : "    ") + FlyoutThemeLabel(mode);
         }
+    }
+
+    private void RefreshAccentMenu()
+    {
+        bool highContrast = SystemInformation.HighContrast;
+        _accentItem.Enabled = !highContrast;
+        _accentItem.ToolTipText = highContrast
+            ? "Accent color is unavailable in high contrast mode."
+            : string.Empty;
+
+        bool automatic = AccentColorService.AutomaticAccent;
+        _automaticAccentItem.Checked = automatic;
+
+        Color current = AccentColorService.CurrentAccent;
+        foreach ((int argb, ToolStripMenuItem item) in _accentItems)
+        {
+            item.Checked = !automatic && argb == current.ToArgb();
+        }
+    }
+
+    private Image CreateAccentSwatch(Color color)
+    {
+        var bitmap = new Bitmap(16, 16);
+        using (Graphics graphics = Graphics.FromImage(bitmap))
+        {
+            graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            using var brush = new SolidBrush(color);
+            graphics.FillEllipse(brush, 1, 1, 14, 14);
+            using var border = new Pen(Color.FromArgb(140, Palette.Text), 1f);
+            graphics.DrawEllipse(border, 1, 1, 14, 14);
+        }
+
+        _accentImages.Add(bitmap);
+        return bitmap;
+    }
+
+    private Image CreateAutomaticAccentSwatch()
+    {
+        var bitmap = new Bitmap(16, 16);
+        using (Graphics graphics = Graphics.FromImage(bitmap))
+        {
+            graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            var bounds = new Rectangle(1, 1, 14, 14);
+            using var path = new GraphicsPath();
+            path.AddEllipse(bounds);
+            using var brush = new LinearGradientBrush(
+                bounds,
+                Color.FromArgb(0, 120, 212),
+                Color.FromArgb(227, 0, 140),
+                45f);
+            graphics.FillPath(brush, path);
+            using var border = new Pen(Color.FromArgb(140, Palette.Text), 1f);
+            graphics.DrawPath(border, path);
+        }
+
+        _accentImages.Add(bitmap);
+        return bitmap;
     }
 
     private void ToggleSchedulePause()

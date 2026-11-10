@@ -13,10 +13,13 @@ internal sealed class SettingsForm : Form
     private const int CsDropShadow = 0x00020000;
     private const int WmNcLButtonDown = 0xA1;
     private const int HtCaption = 0x2;
+    private const int WmSettingChange = 0x001A;
 
     private readonly Action _scheduleChanged;
     private readonly Action _checkForUpdates;
     private readonly Func<string, string, string?> _applyHotkeys;
+    private readonly Action _accentChanged;
+    private readonly ToolTip _accentToolTip = new();
 
     private readonly Panel _header;
     private readonly PictureBox _logo;
@@ -44,16 +47,28 @@ internal sealed class SettingsForm : Form
     private Label _hotkeyStatus = null!;
     private RoundedTextBox _feedBox = null!;
     private Label _feedStatus = null!;
+    private AccentSwatch[] _accentSwatches = [];
+    private Label _accentValueLabel = null!;
+    private Label _accentStatus = null!;
+    private ThemeRow _accentAutomaticRow = null!;
+    private ThemeRow _accentTaskbarRow = null!;
+    private ThemeRow _accentTitleBarsRow = null!;
+    private PillButton _customAccentButton = null!;
+    private LinkButton _restartExplorerLink = null!;
+    private int[] _customAccentColors = [];
+    private bool _accentRefreshQueued;
     private bool _loading = true;
 
     public SettingsForm(
         Action scheduleChanged,
         Action checkForUpdates,
-        Func<string, string, string?> applyHotkeys)
+        Func<string, string, string?> applyHotkeys,
+        Action? accentChanged = null)
     {
         _scheduleChanged = scheduleChanged;
         _checkForUpdates = checkForUpdates;
         _applyHotkeys = applyHotkeys;
+        _accentChanged = accentChanged ?? (() => { });
 
         Palette.Apply(SettingsService.Current.FlyoutTheme, ThemeService.SystemUsesDarkTheme);
 
@@ -61,7 +76,7 @@ internal sealed class SettingsForm : Form
         AutoScaleMode = AutoScaleMode.Dpi;
         Text = "Quick Theme Settings";
         AccessibleName = "Quick Theme Settings";
-        AccessibleDescription = "Configure the schedule, hotkeys, startup behavior, and updates.";
+        AccessibleDescription = "Configure colors, the schedule, hotkeys, startup behavior, and updates.";
         Icon = Palette.IsLight
             ? Properties.Resources.themes_256_black
             : new Icon(Properties.Resources.themes_32, 32, 32);
@@ -125,7 +140,7 @@ internal sealed class SettingsForm : Form
         AttachDrag(_title);
         AttachDrag(_subtitle);
 
-        string[] navLabels = ["General", "Schedule", "Hotkeys", "Updates", "About"];
+        string[] navLabels = ["General", "Colors", "Schedule", "Hotkeys", "Updates", "About"];
         _navButtons = new SettingsNavButton[navLabels.Length];
 
         for (int index = 0; index < navLabels.Length; index++)
@@ -147,7 +162,7 @@ internal sealed class SettingsForm : Form
             BackColor = Color.Transparent,
             ForeColor = Palette.TextMuted,
             Font = new Font("Segoe UI", 8.25F),
-            Bounds = new Rectangle(18, ClientSize.Height - 32, 150, 20),
+            Bounds = new Rectangle(18, ClientSize.Height - 32, 220, 20),
         };
         Controls.Add(_footer);
 
@@ -157,12 +172,14 @@ internal sealed class SettingsForm : Form
         _sections[2] = CreateSectionPanel();
         _sections[3] = CreateSectionPanel();
         _sections[4] = CreateSectionPanel();
+        _sections[5] = CreateSectionPanel();
 
         BuildGeneralSection(_sections[0]);
-        BuildScheduleSection(_sections[1]);
-        BuildHotkeysSection(_sections[2]);
-        BuildUpdatesSection(_sections[3]);
-        BuildAboutSection(_sections[4]);
+        BuildColorsSection(_sections[1]);
+        BuildScheduleSection(_sections[2]);
+        BuildHotkeysSection(_sections[3]);
+        BuildUpdatesSection(_sections[4]);
+        BuildAboutSection(_sections[5]);
 
         _loading = true;
         LoadSettings();
@@ -217,6 +234,23 @@ internal sealed class SettingsForm : Form
         }
 
         LayoutUi();
+    }
+
+    protected override void WndProc(ref Message m)
+    {
+        base.WndProc(ref m);
+
+        if (m.Msg != WmSettingChange || m.LParam == IntPtr.Zero)
+        {
+            return;
+        }
+
+        string? setting = Marshal.PtrToStringUni(m.LParam);
+        if (string.Equals(setting, "ImmersiveColorSet", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(setting, "WindowMetrics", StringComparison.OrdinalIgnoreCase))
+        {
+            QueueAccentRefresh();
+        }
     }
 
     protected override void OnShown(EventArgs e)
@@ -329,6 +363,99 @@ internal sealed class SettingsForm : Form
             panel,
             ref y,
             "Flyout theme and quick presets are available from the tray menu.");
+    }
+
+    private void BuildColorsSection(Panel panel)
+    {
+        int y = AddPageHeader(
+            panel,
+            "Colors",
+            "Choose a manual or automatic Windows accent color and where it appears.",
+            0);
+
+        _accentAutomaticRow = AddToggleRow(
+            panel,
+            ref y,
+            "Automatic accent from wallpaper",
+            "Let Windows choose a color from your background");
+
+        AddLabel(panel, "Accent color", new Rectangle(8, y, 420, 22), Palette.Text, 9F);
+        y += 28;
+
+        const int swatchSize = 28;
+        const int gap = 8;
+        const int perRow = 8;
+        (string Name, Color Color)[] swatches = AccentColors.Standard;
+        _accentSwatches = new AccentSwatch[swatches.Length];
+
+        for (int index = 0; index < swatches.Length; index++)
+        {
+            (string name, Color color) = swatches[index];
+            var swatch = new AccentSwatch(color, name)
+            {
+                Bounds = new Rectangle(
+                    8 + (index % perRow) * (swatchSize + gap),
+                    y + (index / perRow) * (swatchSize + gap),
+                    swatchSize,
+                    swatchSize),
+            };
+            swatch.Click += (_, _) => ApplyAccent(swatch.AccentColor);
+            _accentToolTip.SetToolTip(swatch, $"{name} · #{color.R:X2}{color.G:X2}{color.B:X2}");
+            panel.Controls.Add(swatch);
+            _accentSwatches[index] = swatch;
+        }
+
+        int rows = (swatches.Length + perRow - 1) / perRow;
+        y += rows * (swatchSize + gap) + 4;
+
+        _accentValueLabel = AddLabel(
+            panel,
+            string.Empty,
+            new Rectangle(8, y, 260, 24),
+            Palette.TextMuted,
+            8.5F);
+        _accentValueLabel.AccessibleName = "Current accent color";
+        y += 30;
+
+        _customAccentButton = new PillButton("Custom color...")
+        {
+            Bounds = new Rectangle(8, y, 130, 30),
+            AccessibleDescription = "Open a color picker to choose a custom Windows accent color.",
+        };
+        _customAccentButton.Click += (_, _) => ChooseCustomAccent();
+        panel.Controls.Add(_customAccentButton);
+        y += 40;
+
+        _accentTaskbarRow = AddToggleRow(
+            panel,
+            ref y,
+            "Show accent on Start and taskbar",
+            "Use the accent color on the taskbar and Start menu");
+
+        _accentTitleBarsRow = AddToggleRow(
+            panel,
+            ref y,
+            "Show accent on title bars",
+            "Color window title bars and borders");
+
+        AddNote(
+            panel,
+            ref y,
+            "Windows may need Explorer restarted before the taskbar and Start menu update.",
+            32);
+
+        _restartExplorerLink = new LinkButton("Restart Explorer")
+        {
+            Bounds = new Rectangle(8, y, 140, 24),
+            TextAlign = ContentAlignment.MiddleLeft,
+            AccessibleDescription = "Restart Explorer so accent colors reach the taskbar and Start menu.",
+        };
+        _restartExplorerLink.Click += OnRestartExplorerClick;
+        panel.Controls.Add(_restartExplorerLink);
+        y += 26;
+
+        _accentStatus = AddNote(panel, ref y, string.Empty, 18);
+        _accentStatus.AccessibleName = "Accent color status";
     }
 
     private void BuildScheduleSection(Panel panel)
@@ -659,6 +786,10 @@ internal sealed class SettingsForm : Form
         _startWithWindowsRow.CheckedChanged += OnStartWithWindowsChanged;
         _startupUpdatesRow.CheckedChanged += OnStartupUpdatesChanged;
 
+        _accentAutomaticRow.CheckedChanged += OnAccentAutomaticChanged;
+        _accentTaskbarRow.CheckedChanged += OnAccentPrevalenceChanged;
+        _accentTitleBarsRow.CheckedChanged += OnAccentPrevalenceChanged;
+
         _toggleHotkeyBox.InnerTextBox.KeyDown += OnHotkeyBoxKeyDown;
         _openHotkeyBox.InnerTextBox.KeyDown += OnHotkeyBoxKeyDown;
     }
@@ -674,6 +805,10 @@ internal sealed class SettingsForm : Form
         _daysControl.SelectedIndex = (int)settings.ScheduleDays;
         _startWithWindowsRow.SetCheckedSilently(StartupService.IsEnabled);
         _startupUpdatesRow.SetCheckedSilently(settings.CheckForUpdatesOnStartup);
+        SetAccentAutomaticChecked(AccentColorService.AutomaticAccent);
+        _accentTaskbarRow.SetCheckedSilently(AccentColorService.AccentOnTaskbar);
+        _accentTitleBarsRow.SetCheckedSilently(AccentColorService.AccentOnTitleBars);
+        UpdateAccentUi();
         _toggleHotkeyBox.InnerTextBox.Text = settings.HotkeyToggleDark;
         _openHotkeyBox.InnerTextBox.Text = settings.HotkeyOpenPanel;
         _feedBox.InnerTextBox.Text = settings.UpdateFeedUrl;
@@ -705,6 +840,249 @@ internal sealed class SettingsForm : Form
         UpdateScheduleStatus();
     }
 
+    public void ShowColorsSection() => ShowSection(1);
+
+    private void UpdateAccentUi()
+    {
+        Color current = AccentColorService.CurrentAccent;
+        bool automatic = AccentColorService.AutomaticAccent;
+        bool enabled = !SystemInformation.HighContrast;
+
+        _accentAutomaticRow.Enabled = enabled;
+        _accentTaskbarRow.Enabled = enabled;
+        _accentTitleBarsRow.Enabled = enabled;
+        _customAccentButton.Enabled = enabled;
+
+        foreach (AccentSwatch swatch in _accentSwatches)
+        {
+            swatch.Enabled = enabled;
+            swatch.Selected = enabled && !automatic && swatch.AccentColor.ToArgb() == current.ToArgb();
+        }
+
+        if (!enabled)
+        {
+            _accentValueLabel.Text = "Current accent: high contrast";
+            _accentValueLabel.ForeColor = Palette.TextMuted;
+            return;
+        }
+
+        string suffix = automatic ? " (automatic)" : string.Empty;
+        _accentValueLabel.Text =
+            $"Current accent: #{current.R:X2}{current.G:X2}{current.B:X2}{suffix}";
+        _accentValueLabel.ForeColor = Palette.TextMuted;
+    }
+
+    private void SetAccentAutomaticChecked(bool value)
+    {
+        bool previous = _loading;
+        _loading = true;
+        try
+        {
+            _accentAutomaticRow.SetCheckedSilently(value);
+        }
+        finally
+        {
+            _loading = previous;
+        }
+    }
+
+    private void QueueAccentRefresh()
+    {
+        if (_accentRefreshQueued || IsDisposed || !IsHandleCreated)
+        {
+            return;
+        }
+
+        _accentRefreshQueued = true;
+
+        try
+        {
+            BeginInvoke(() =>
+            {
+                _accentRefreshQueued = false;
+
+                if (IsDisposed)
+                {
+                    return;
+                }
+
+                ThemeService.RefreshAccentColor();
+
+                _loading = true;
+                try
+                {
+                    SetAccentAutomaticChecked(AccentColorService.AutomaticAccent);
+                    _accentTaskbarRow.SetCheckedSilently(AccentColorService.AccentOnTaskbar);
+                    _accentTitleBarsRow.SetCheckedSilently(AccentColorService.AccentOnTitleBars);
+                }
+                finally
+                {
+                    _loading = false;
+                }
+
+                UpdateAccentUi();
+                Invalidate(invalidateChildren: true);
+            });
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or ObjectDisposedException)
+        {
+            _accentRefreshQueued = false;
+        }
+    }
+
+    private void ChooseCustomAccent()
+    {
+        using var dialog = new ColorDialog
+        {
+            AllowFullOpen = true,
+            AnyColor = true,
+            FullOpen = true,
+            Color = AccentColorService.CurrentAccent,
+            CustomColors = _customAccentColors,
+        };
+
+        if (dialog.ShowDialog(this) != DialogResult.OK)
+        {
+            return;
+        }
+
+        _customAccentColors = dialog.CustomColors;
+        ApplyAccent(dialog.Color);
+    }
+
+    private void ApplyAccent(Color color)
+    {
+        try
+        {
+            AccentColorService.Apply(
+                color,
+                _accentTaskbarRow.Checked,
+                _accentTitleBarsRow.Checked);
+
+            SetAccentAutomaticChecked(false);
+            Palette.Apply(SettingsService.Current.FlyoutTheme, ThemeService.SystemUsesDarkTheme);
+            UpdateAccentUi();
+            SetAccentStatus(
+                $"Accent set to #{color.R:X2}{color.G:X2}{color.B:X2}.",
+                Palette.TextMuted);
+
+            Invalidate(invalidateChildren: true);
+            _accentChanged();
+        }
+        catch (Exception ex) when (IsAccentException(ex))
+        {
+            SetAccentStatus("Could not change the accent color.", Palette.Danger);
+        }
+    }
+
+    private async void OnAccentAutomaticChanged(object? sender, EventArgs e)
+    {
+        if (_loading)
+        {
+            return;
+        }
+
+        try
+        {
+            if (_accentAutomaticRow.Checked)
+            {
+                SetAccentStatus("Updating automatic accent...", Palette.TextMuted);
+                bool refreshed = await AccentColorService.EnableAutomaticAccentAsync();
+
+                if (IsDisposed || !_accentAutomaticRow.Checked)
+                {
+                    return;
+                }
+
+                UpdateAccentUi();
+                SetAccentStatus(
+                    refreshed
+                        ? "Automatic accent enabled from your wallpaper."
+                        : "Automatic accent enabled. Windows will update it on the next wallpaper change.",
+                    Palette.TextMuted);
+            }
+            else
+            {
+                AccentColorService.DisableAutomaticAccent();
+                UpdateAccentUi();
+                SetAccentStatus("Automatic accent disabled. The current color stays.", Palette.TextMuted);
+            }
+
+            _accentChanged();
+        }
+        catch (Exception ex) when (IsAccentException(ex))
+        {
+            SetAccentStatus("Could not change the automatic accent setting.", Palette.Danger);
+        }
+    }
+
+    private void OnAccentPrevalenceChanged(object? sender, EventArgs e)
+    {
+        if (_loading)
+        {
+            return;
+        }
+
+        try
+        {
+            AccentColorService.AccentOnTaskbar = _accentTaskbarRow.Checked;
+            AccentColorService.AccentOnTitleBars = _accentTitleBarsRow.Checked;
+            SystemThemeNotifier.NotifyAccentChanged();
+            SetAccentStatus("Accent color surfaces updated.", Palette.TextMuted);
+        }
+        catch (Exception ex) when (IsAccentException(ex))
+        {
+            SetAccentStatus("Could not update the accent color settings.", Palette.Danger);
+        }
+    }
+
+    private async void OnRestartExplorerClick(object? sender, EventArgs e)
+    {
+        _restartExplorerLink.Actionable = false;
+        try
+        {
+            var page = new TaskDialogPage
+            {
+                Caption = "Quick Theme",
+                Heading = "Restart Explorer?",
+                Text = "Explorer will restart so the new accent color reaches the taskbar and Start menu. Open File Explorer windows will close.",
+                Icon = TaskDialogIcon.Warning,
+                DefaultButton = TaskDialogButton.Cancel,
+                Buttons = { TaskDialogButton.Yes, TaskDialogButton.Cancel },
+            };
+
+            if (TaskDialog.ShowDialog(this, page) != TaskDialogButton.Yes)
+            {
+                return;
+            }
+
+            SetAccentStatus("Restarting Explorer...", Palette.TextMuted);
+            await ExplorerService.RestartAsync();
+            SetAccentStatus("Explorer restarted.", Palette.TextMuted);
+        }
+        finally
+        {
+            if (!_restartExplorerLink.IsDisposed)
+            {
+                _restartExplorerLink.Actionable = true;
+            }
+        }
+    }
+
+    private void SetAccentStatus(string text, Color color)
+    {
+        if (_accentStatus.IsDisposed)
+        {
+            return;
+        }
+
+        _accentStatus.ForeColor = color;
+        _accentStatus.Text = text;
+    }
+
+    private static bool IsAccentException(Exception ex) =>
+        ex is UnauthorizedAccessException or System.Security.SecurityException or IOException or InvalidOperationException;
+
     private void ShowSection(int index)
     {
         for (int section = 0; section < _sections.Length; section++)
@@ -728,7 +1106,7 @@ internal sealed class SettingsForm : Form
         int contentLeft = Scale(200);
         int contentTop = _header.Bottom + Scale(16);
         int contentWidth = Math.Max(0, ClientSize.Width - contentLeft - Scale(16));
-        int contentHeight = Math.Max(0, ClientSize.Height - contentTop - Scale(16));
+        int contentHeight = Math.Max(0, ClientSize.Height - contentTop - Scale(40));
 
         foreach (Panel panel in _sections)
         {
@@ -1013,6 +1391,16 @@ internal sealed class SettingsForm : Form
     }
 
     private int Scale(int value) => (int)Math.Round(value * DeviceDpi / 96.0);
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            _accentToolTip.Dispose();
+        }
+
+        base.Dispose(disposing);
+    }
 
     private static void OpenUrl(string url)
     {

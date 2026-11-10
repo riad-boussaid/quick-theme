@@ -46,12 +46,13 @@ See [`winget/README.md`](winget/README.md) for submission details and automation
 - Quick toggles in the tray menu, plus middle-click for a full dark/light switch
 - Configurable global hotkeys (defaults: `Ctrl+Alt+D` and `Ctrl+Alt+Q`)
 - Live refresh when the theme is changed from Windows Settings or another tool
-- Uses your Windows accent color
+- Accent color picker in the flyout, tray menu, and Settings, plus automatic wallpaper color
+- Show accent color on Start/taskbar and title bars
+- CLI switches for scripts and shortcuts, including `--accent` and `--accent-auto`
 - Tray icon automatically switches between light and dark variants
 - Optional "Start with Windows"
 - Optional Explorer restart to apply system colors to the taskbar
 - Single instance: launching it again just reopens the flyout
-- CLI switches for scripts and shortcuts
 - Built-in update check and self-update
 - Keyboard-friendly controls, screen-reader labels, and high-contrast support
 - Windows 10/11, per-monitor DPI aware
@@ -173,10 +174,13 @@ quick-theme.exe --show     # open the flyout immediately
 quick-theme.exe --dark     # switch apps + system to dark
 quick-theme.exe --light    # switch apps + system to light
 quick-theme.exe --toggle   # swap apps + system between dark and light
+quick-theme.exe --accent "#0078D4"  # set a manual accent color
+quick-theme.exe --accent-auto       # use the wallpaper accent color
 ```
 
 Theme commands apply immediately and exit if the tray app is not running. If it is
-already running, the open flyout and tray icon refresh automatically.
+already running, the open flyout and tray icon refresh automatically. Accent colors
+accept `#RRGGBB` or `RRGGBB`.
 
 ## Settings
 

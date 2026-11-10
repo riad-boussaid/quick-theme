@@ -82,7 +82,9 @@ internal static class Palette
             Color accent = ThemeService.AccentColor;
             if (!IsLight)
             {
-                return accent;
+                return accent.GetBrightness() < 0.35f
+                    ? ControlPaint.Light(accent, 0.35f)
+                    : accent;
             }
 
             float brightness = accent.GetBrightness();

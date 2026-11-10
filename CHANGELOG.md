@@ -2,11 +2,19 @@
 
 All notable changes to Quick Theme are documented here.
 
-## [Unreleased]
+## [1.7.0] - 2026-11-10
 
-### Changed
+### Added
 
-- Updated the Winget manifest and submission docs to 1.6.1
+- Accent color controls in the flyout and Settings: pick a Windows accent
+  color, use the automatic wallpaper-based color, show it on Start and the
+  taskbar, and show it on title bars and window borders
+- Accent color submenu in the tray menu with automatic, quick colors, and a
+  link to the full Colors settings
+- CLI accent switches: `--accent "#RRGGBB"` and `--accent-auto`
+- Improved accent accessibility, tooltips, disabled-state visuals, and
+  high-contrast handling
+- Tests for accent registry writes and CLI accent parsing
 
 ## [1.6.1] - 2026-11-09
 
@@ -20,6 +28,7 @@ All notable changes to Quick Theme are documented here.
 ### Changed
 
 - Improved screen-reader labels and keyboard navigation in the settings window
+- Updated the Winget manifest and submission docs
 
 ## [1.6.0] - 2026-11-09
 
