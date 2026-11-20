@@ -1,0 +1,22 @@
+PackageIdentifier: RiadBoussaid.QuickTheme
+PackageVersion: 1.7.0
+Platform:
+  - Windows.Desktop
+MinimumOSVersion: 10.0.0.0
+InstallerType: inno
+Scope: user
+InstallModes:
+  - interactive
+  - silent
+  - silentWithProgress
+UpgradeBehavior: install
+ReleaseDate: 2026-11-10
+Installers:
+  - Architecture: x64
+    InstallerUrl: https://github.com/riad-boussaid/quick-theme/releases/download/v1.7.0/quick-theme-1.7.0-setup.exe
+    InstallerSha256: 820729CEFEAC4C1F9F8D01002C785A2F70C87B01FBC0517D164B30E853FA58AE
+    InstallerSwitches:
+      Silent: /VERYSILENT /SUPPRESSMSGBOXES /NORESTART
+      SilentWithProgress: /SILENT /SUPPRESSMSGBOXES /NORESTART
+ManifestType: installer
+ManifestVersion: 1.6.0

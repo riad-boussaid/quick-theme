@@ -14,9 +14,9 @@ winget install RiadBoussaid.QuickTheme
 
 ```powershell
 .\winget\generate-manifests.ps1 `
-  -Version 1.6.1 `
-  -InstallerUrl "https://github.com/riad-boussaid/quick-theme/releases/download/v1.6.1/quick-theme-1.6.1-setup.exe" `
-  -InstallerSha256 "3AEE3227967C188CA6919E8159462CD7684851AD20DAF1CCF3DB641FDF5DFA9B"
+  -Version 1.7.0 `
+  -InstallerUrl "https://github.com/riad-boussaid/quick-theme/releases/download/v1.7.0/quick-theme-1.7.0-setup.exe" `
+  -InstallerSha256 "820729CEFEAC4C1F9F8D01002C785A2F70C87B01FBC0517D164B30E853FA58AE"
 ```
 
 This writes the three files required by winget under
@@ -25,7 +25,7 @@ This writes the three files required by winget under
 ## Validate locally
 
 ```powershell
-winget validate --manifest .\winget\manifests\r\RiadBoussaid\QuickTheme\1.6.1
+winget validate --manifest .\winget\manifests\r\RiadBoussaid\QuickTheme\1.7.0
 ```
 
 ## Test locally
@@ -34,7 +34,7 @@ Local manifest installs require the feature to be enabled by an administrator:
 
 ```powershell
 winget settings --enable LocalManifestFiles
-winget install --manifest .\winget\manifests\r\RiadBoussaid\QuickTheme\1.6.1
+winget install --manifest .\winget\manifests\r\RiadBoussaid\QuickTheme\1.7.0
 ```
 
 ## Submit
